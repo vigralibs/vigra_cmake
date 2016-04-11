@@ -60,13 +60,15 @@ elseif (${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /noOy /W2 /EHsc")
 endif()
 
+# search pkgs
+dep_lists_pkg_search(${P_N_U})
 
 #####################################################
 ## SET INCLUDES, LIBS, ... (public)
 #####################################################
-foreach(PACKAGE ${${P_N_U}_PKG})
-  find_package(${PACKAGE} REQUIRED)
-endforeach()
+# foreach(PACKAGE ${${P_N_U}_PKG})
+#   find_package(${PACKAGE} REQUIRED)
+# endforeach()
 foreach(INCLUDE ${${P_N_U}_PKG_INC})
   list(APPEND ${P_N_U}_DEPENDS_INC ${${INCLUDE}})
 endforeach()
@@ -81,9 +83,9 @@ endforeach()
 ## SET INCLUDES, LIBS, ... (private)
 #####################################################
 
-foreach(PACKAGE ${${P_N_U}_PRIVATE_PKG})
-  find_package(${PACKAGE} REQUIRED)
-endforeach()
+# foreach(PACKAGE ${${P_N_U}_PRIVATE_PKG})
+#   find_package(${PACKAGE} REQUIRED)
+# endforeach()
 foreach(INCLUDE ${${P_N_U}_PRIVATE_PKG_INC})
   list(APPEND ${P_N_U}_PRIVATE_DEPENDS_INC ${${INCLUDE}})
 endforeach()
