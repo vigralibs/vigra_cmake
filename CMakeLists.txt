@@ -33,6 +33,12 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/alglib)
 #####################################################
 ## DEPENDENCIES
 #####################################################
+#metamat
+list(APPEND ${P_N_U}_PKG MetaMat)
+list(APPEND ${P_N_U}_PKG_INC  METAMAT_INCLUDE_DIRS)
+list(APPEND ${P_N_U}_PKG_LINK METAMAT_LIBRARY_DIRS)
+list(APPEND ${P_N_U}_PKG_LIB  METAMAT_LIBRARIES)
+
 #opencv
 list(APPEND ${P_N_U}_PKG OpenCV)
 list(APPEND ${P_N_U}_PKG_INC OpenCV_INCLUDE_DIRS)
@@ -47,6 +53,7 @@ list(APPEND ${P_N_U}_PKG_LIB CERES_LIBRARIES)
 list(APPEND ${P_N_U}_PRIVATE_PKG Alglib)
 list(APPEND ${P_N_U}_PRIVATE_PKG_INC ALGLIB_INCLUDE_DIRS)
 list(APPEND ${P_N_U}_PRIVATE_PKG_LIB ALGLIB_LIBRARIES)
+
 
 #####################################################
 ## COMPILER / FLAGS

@@ -1,6 +1,9 @@
 
 #include <opencv2/core/core.hpp>
 
+
+#include <mm/mat.hpp>
+
 //class representing a calibrated generic (non-pinhole) camera, expressed relative to a pin-hole model
 class GenCam {
 public:
@@ -28,3 +31,6 @@ public:
   cv::Point2f world2distorted(float z, cv::Point3f wp);
 };
 
+
+cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f);
+void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f);
