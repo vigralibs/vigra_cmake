@@ -10,9 +10,6 @@
 
 #include <cstdarg>
 
-#include "fitting.hpp"
-
-
 using namespace cv;
 using namespace alglib;
 using namespace std;

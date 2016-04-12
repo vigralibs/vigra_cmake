@@ -4,6 +4,8 @@
 #include "settings.hpp"
 #include "simplecloud.hpp"
 
+#include <mm/mat.hpp>
+ 
 class DistCorr
 {
 public:
@@ -118,5 +120,7 @@ public:
   void recalc() {};
 private :
 };
+
+void proxy_backwards_poly_generate(clif::Mat_<float> proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim);
 
 #endif
