@@ -106,7 +106,7 @@ endforeach()
 #####################################################
 ## PUBLIC HEADERS
 #####################################################
-list(APPEND ${P_N_U}_PROJECT_HEADERS loess.hpp fitting.hpp corr_lines.hpp simplecloud.hpp cam_models.hpp settings.hpp gencam.hpp)
+list(APPEND ${P_N_U}_PROJECT_HEADERS corr_lines.hpp gencam.hpp)
 foreach(header ${${P_N_U}_PROJECT_HEADERS})
   get_filename_component(_FILE ${header} NAME)
   configure_file(${header} "include/${PROJECT_NAME}/${_FILE}" COPYONLY)
@@ -124,7 +124,7 @@ link_directories(${${P_N_U}_DEPENDS_LINK} ${${P_N_U}_PRIVATE_DEPENDS_LINK})
 #####################################################
 
 #ucalib
-add_library(ucalib SHARED loess.cpp fitting.cpp corr_lines.cpp simplecloud.cpp common.cpp cam_models.cpp gencam.cpp)
+add_library(ucalib SHARED corr_lines.cpp gencam.cpp)
 target_link_libraries(ucalib ${${P_N_U}_DEPENDS_LIB} ${${P_N_U}_PRIVATE_DEPENDS_LIB})
 list(APPEND ${P_N_U}_EXPORT_LIBS ucalib)
 

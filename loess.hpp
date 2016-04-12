@@ -1,8 +1,6 @@
 #ifndef _LUTCALIB_LOESS_H
 #define _LUTCALIB_LOESS_H
 
-#include "settings.hpp"
-
 #include "ceres/ceres.h"
 #include "opencv2/core/core.hpp"
 
