@@ -53,7 +53,9 @@ list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 ## PUBLIC HEADERS
 #####################################################
 set(${PNU}_HEADERS corr_lines.hpp gencam.hpp)
-dep_lists_export()
+
+#copy headers and generate XXXConfig.cmake
+dep_lists_export_local()
 
 #####################################################
 ## INSTALL
@@ -68,42 +70,6 @@ install(TARGETS ${${PNU}_EXPORT_LIBS}
             ARCHIVE DESTINATION lib)
 #headers
 install(FILES ${${PNU}_PROJECT_HEADERS} DESTINATION include/${PROJECT_NAME})
-
-
-#####################################################
-## EXPORT
-#####################################################
-
-#export helper
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
-include(CMakePackageConfigListHelpers)
-
-#####################################################
-## ...Config.cmake generation
-#####################################################
-set(CMAKECONFIG_PKG ${${PNU}_PKG})
-set(CMAKECONFIG_PKG_INC ${${PNU}_PKG_INC})
-set(CMAKECONFIG_PKG_LINK ${${PNU}_PKG_LINK})
-set(CMAKECONFIG_PKG_LIB ${${PNU}_PKG_LIB})
-
-set(CMAKECONFIG_INC "include") #in build dir - headers were already copied earlier
-set(CMAKECONFIG_LIB ${${PNU}_EXPORT_LIBS}) # our libs to link on import
-
-
-#####################################################
-## local config.cmake
-#####################################################
-set(CMAKECONFIG_CMAKE_DIR ${CMAKE_CURRENT_BINARY_DIR})
-
-set(CMAKECONFIG_LINK ${CMAKE_CURRENT_BINARY_DIR})
-
-set(INSTALL_PREFIX_BACKUP ${CMAKE_INSTALL_PREFIX})
-set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})
-configure_package_config_file(cmake/projectConfig.cmake.in
-                              "${CMAKECONFIG_CMAKE_DIR}/${PROJECT_NAME}Config.cmake"
-                              INSTALL_DESTINATION "${CMAKECONFIG_CMAKE_DIR}"
-                              PATH_VARS CMAKECONFIG_PKG CMAKECONFIG_PKG_INC CMAKECONFIG_PKG_LINK CMAKECONFIG_PKG_LIB CMAKECONFIG_INC CMAKECONFIG_LINK CMAKECONFIG_LIB)
-set(CMAKE_INSTALL_PREFIX ${INSTALL_PREFIX_BACKUP})
 
 
 #####################################################
@@ -138,4 +104,3 @@ install(FILES ${${PNU}_FULLPATH_HEADERS} DESTINATION include/${PROJECT_NAME} )
 # endif()
 
 #export into cmakes local package cache - should be directly visible to cmake of local user
-export(PACKAGE ${PROJECT_NAME})
