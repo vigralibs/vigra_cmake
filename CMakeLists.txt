@@ -45,19 +45,14 @@ foreach(header ${${PNU}_PROJECT_HEADERS})
 endforeach()
 
 #####################################################
-## DIRS (from above)
-#####################################################
-include_directories(${${PNU}_DEPENDS_INC} ${${PNU}_PRIVATE_DEPENDS_INC})
-link_directories(${${PNU}_DEPENDS_LINK} ${${PNU}_PRIVATE_DEPENDS_LINK})
-
-
-#####################################################
 ## COMPILE AND LINK
 #####################################################
 
 #ucalib
 add_library(ucalib SHARED corr_lines.cpp gencam.cpp)
-target_link_libraries(ucalib ${${PNU}_DEPENDS_LIB} ${${PNU}_PRIVATE_DEPENDS_LIB})
+target_link_libraries(ucalib PUBLIC ${${PNU}_LIB})
+target_link_libraries(ucalib PRIVATE ${${PNU}_PRIVATE_LIB})
+
 list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 
 
@@ -67,11 +62,9 @@ list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 
 #install bins
 install(TARGETS ${${PNU}_EXPORT_BINS}
-            EXPORT ${PROJECT_NAME}
             RUNTIME DESTINATION bin)
 #install libs & export as export ${PROJECT_NAME}
 install(TARGETS ${${PNU}_EXPORT_LIBS}
-            EXPORT ${PROJECT_NAME}
             LIBRARY DESTINATION lib
             ARCHIVE DESTINATION lib)
 #headers
@@ -135,16 +128,15 @@ install(FILES
   DESTINATION ${CMAKECONFIG_CMAKE_DIR})
 
 #export targets for installation
-install(EXPORT ${PROJECT_NAME} DESTINATION ${CMAKECONFIG_CMAKE_DIR})
 install(FILES ${${PNU}_FULLPATH_HEADERS} DESTINATION include/${PROJECT_NAME} )
 
 #local export into binary dir (may be found with find_package() using cmake .. -DCMAKE_PREFIX_PATH=<...> or with cmake-gui)
-if (${CMAKE_VERSION} VERSION_LESS 3.0.0)
-  #TODO use a generated list of targets!
-  export(TARGETS ucalib FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cmake)
-else()
-  export(EXPORT ${PROJECT_NAME} FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cmake)
-endif()
+# if (${CMAKE_VERSION} VERSION_LESS 3.0.0)
+#   #TODO use a generated list of targets!
+#   export(TARGETS ucalib FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cmake)
+# else()
+#   export(EXPORT ${PROJECT_NAME} FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.cmake)
+# endif()
 
 #export into cmakes local package cache - should be directly visible to cmake of local user
 export(PACKAGE ${PROJECT_NAME})
