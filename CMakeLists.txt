@@ -33,7 +33,7 @@ dep_lists_pkg_search()
 #####################################################
 ## SET INCLUDES, LIBS, ... (public)
 #####################################################
-dep_lists_inc_link()
+dep_lists_prepare_env()
 
 
 
