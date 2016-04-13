@@ -35,14 +35,8 @@ dep_lists_pkg_search()
 #####################################################
 dep_lists_inc_link()
 
-#####################################################
-## PUBLIC HEADERS
-#####################################################
-list(APPEND ${PNU}_PROJECT_HEADERS corr_lines.hpp gencam.hpp)
-foreach(header ${${PNU}_PROJECT_HEADERS})
-  get_filename_component(_FILE ${header} NAME)
-  configure_file(${header} "include/${PROJECT_NAME}/${_FILE}" COPYONLY)
-endforeach()
+
+
 
 #####################################################
 ## COMPILE AND LINK
@@ -55,6 +49,11 @@ target_link_libraries(ucalib PRIVATE ${${PNU}_PRIVATE_LIB})
 
 list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 
+#####################################################
+## PUBLIC HEADERS
+#####################################################
+set(${PNU}_HEADERS corr_lines.hpp gencam.hpp)
+dep_lists_export()
 
 #####################################################
 ## INSTALL
