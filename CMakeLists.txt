@@ -3,7 +3,7 @@ project(ucalib)
 string(TOUPPER ${PROJECT_NAME} PNU)
 
 #remove old local projectconfig
-dep_lists_cleanup()
+dep_lists_init()
 
 #####################################################
 ## DEPENDENCIES
