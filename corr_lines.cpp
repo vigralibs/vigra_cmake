@@ -35,8 +35,6 @@ using namespace std;
 
 #include <cstdarg>
 
-#include <mm/mat.hpp>
-
 using namespace cv;
 using namespace std;
 
