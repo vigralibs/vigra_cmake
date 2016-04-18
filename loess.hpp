@@ -90,7 +90,7 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
   
   double w_sum = 0.0;
   
-  Point2f wc(0, 0);
+  cv::Point2f wc(0, 0);
   
 
   coeffs[0] = wps[0].x;

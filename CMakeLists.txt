@@ -10,6 +10,7 @@ dep_lists_init()
 #####################################################
 #metamat
 dep_lists_append(MetaMat)
+dep_lists_append(mm-mesh)
 dep_lists_append(OpenCV OpenCV_INCLUDE_DIRS "" OpenCV_LIBS)
 dep_lists_append(Ceres)
 dep_lists_append(Alglib PRIVATE)
@@ -43,7 +44,7 @@ dep_lists_prepare_env()
 #####################################################
 
 #ucalib
-add_library(ucalib SHARED corr_lines.cpp gencam.cpp)
+add_library(ucalib SHARED proxy.cpp ucalib.cpp)
 target_link_libraries(ucalib PUBLIC ${${PNU}_LIB})
 target_link_libraries(ucalib PRIVATE ${${PNU}_PRIVATE_LIB})
 
@@ -52,7 +53,7 @@ list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 #####################################################
 ## PUBLIC HEADERS
 #####################################################
-set(${PNU}_HEADERS corr_lines.hpp gencam.hpp)
+set(${PNU}_HEADERS proxy.hpp ucalib.hpp)
 
 #copy headers and generate XXXConfig.cmake
 dep_lists_export_local()

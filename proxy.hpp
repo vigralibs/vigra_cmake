@@ -1,5 +1,5 @@
-#ifndef _LUTCALIB_CORR_LINES_H
-#define _LUTCALIB_CORR_LINES_H
+#ifndef _UCALIB_PROXY_H
+#define _UCALIB_PROXY_H
 
 #include <metamat/mat.hpp>
 
