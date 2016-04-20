@@ -1101,7 +1101,8 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   
   //for threading!
   //options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.linear_solver_type = ceres::SPARSE_SCHUR;
+  if (ceres::IsSparseLinearAlgebraLibraryTypeAvailable(ceres::SUITE_SPARSE))
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
   
   options.num_threads = 8;
   options.num_linear_solver_threads = 8;
@@ -1244,4 +1245,6 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   //viewer_thread.join();
 #endif
   printf("finished\n");
+
+  return 0.0;
 }

@@ -87,6 +87,7 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
   //options.minimizer_progress_to_stdout = true;
   //options.trust_region_strategy_type = ceres::DOGLEG;
   options.linear_solver_type = ceres::DENSE_QR;
+  options.logging_type = ceres::SILENT;
   
   double w_sum = 0.0;
   
