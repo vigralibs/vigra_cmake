@@ -65,7 +65,6 @@ dep_lists_prepare_env()
 
 #ucalib
 add_library(ucalib proxy.cpp ucalib.cpp)
-message("ucalib link: ${${PNU}_LIB} ${${PNU}_PRIVATE_LIB}")
 target_link_libraries(ucalib PUBLIC ${${PNU}_LIB})
 target_link_libraries(ucalib PRIVATE ${${PNU}_PRIVATE_LIB})
 
