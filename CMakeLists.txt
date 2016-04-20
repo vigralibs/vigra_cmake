@@ -54,6 +54,7 @@ endif()
 #####################################################
 ## SET INCLUDES, LIBS, ... (public)
 #####################################################
+set(${PNU}_HEADERS proxy.hpp ucalib.hpp)
 dep_lists_prepare_env()
 
 
@@ -69,11 +70,6 @@ target_link_libraries(ucalib PUBLIC ${${PNU}_LIB})
 target_link_libraries(ucalib PRIVATE ${${PNU}_PRIVATE_LIB})
 
 list(APPEND ${PNU}_EXPORT_LIBS ucalib)
-
-#####################################################
-## PUBLIC HEADERS
-#####################################################
-set(${PNU}_HEADERS proxy.hpp ucalib.hpp)
 
 #copy headers and generate XXXConfig.cmake
 dep_lists_export_local()
