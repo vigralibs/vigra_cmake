@@ -45,7 +45,6 @@ endif()
 #####################################################
 dep_lists_init()
 dep_lists_pkg_search()
-dep_lists_prepare_env()
 
 file(DOWNLOAD http://www.alglib.net/translator/re/alglib-3.10.0.cpp.gpl.tgz "${CMAKE_CURRENT_BINARY_DIR}/alglib.tgz")
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src")
@@ -55,6 +54,7 @@ WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/src")
 file(GLOB ${PNU}_SRCS "${CMAKE_CURRENT_BINARY_DIR}/src/cpp/src/*.cpp")
 file(GLOB ${PNU}_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/src/cpp/src/*.h")
 
+dep_lists_prepare_env()
 
 #message("source: ")
 
