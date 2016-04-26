@@ -72,3 +72,11 @@ list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 ## INSTALL
 #####################################################
 dep_lists_export_local()
+
+#####################################################
+## INFO
+#####################################################
+message("build info for ${PROJECT_NAME}:")
+message("  optional components:")
+msg_yesno("    internal alglib" UCALIB_INTERNAL_ALGLIB COLOR NONE)
+message("")
