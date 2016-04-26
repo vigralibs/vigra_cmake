@@ -1,23 +1,9 @@
 cmake_minimum_required (VERSION 2.8.8)
 project(Alglib)
 
-string(TOUPPER ${PROJECT_NAME} PNU)
+include(../../../flexdeplists/FlexDepLists.cmake)
 
-# FIXME handle common includes
-include(CMakePackageConfigListHelpers)
-include(FlexDepLists)
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
-
-# FIXME add Debug, etc. on win!
-foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
-	string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
-	set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
-	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-endforeach()
+dep_lists_init()
 
 set(${PNU}_BUILD_TYPE "SHARED")
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL Clang)
@@ -43,7 +29,6 @@ endif()
 #####################################################
 ## DEPENDENCIES
 #####################################################
-dep_lists_init()
 dep_lists_pkg_search()
 
 file(DOWNLOAD http://www.alglib.net/translator/re/alglib-3.10.0.cpp.gpl.tgz "${CMAKE_CURRENT_BINARY_DIR}/alglib.tgz")
