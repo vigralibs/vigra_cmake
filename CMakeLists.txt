@@ -40,7 +40,8 @@ dep_lists_append(OpenCV OpenCV_INCLUDE_DIRS "" OpenCV_LIBS)
 dep_lists_append(Ceres)
 
 dep_lists_append(mm-mesh OPTIONAL)
-dep_lists_append(Alglib PRIVATE OPTIONAL)
+# FIXME should also work as PRIVATE (but doesn't with MSVC in Debug, something is exported from alglib in ucalib?!)
+dep_lists_append(Alglib PRIVATE)
 
 # search pkgs
 dep_lists_pkg_search()
@@ -52,7 +53,7 @@ endif()
 if (UCALIB_INTERNAL_ALGLIB)
   add_subdirectory(external/alglib)
   # FIXME remove alglib from optional?!
-  dep_lists_append(Alglib PRIVATE)
+  dep_lists_append(Alglib)
   dep_lists_pkg_recheck(Alglib)
 endif()
 
