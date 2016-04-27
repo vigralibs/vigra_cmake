@@ -41,7 +41,7 @@ dep_lists_append(Ceres)
 
 dep_lists_append(mm-mesh OPTIONAL)
 # FIXME should also work as PRIVATE (but doesn't with MSVC in Debug, something is exported from alglib in ucalib?!)
-dep_lists_append(Alglib PRIVATE)
+dep_lists_append(Alglib)
 
 # search pkgs
 dep_lists_pkg_search()
