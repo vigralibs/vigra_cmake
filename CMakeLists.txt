@@ -61,6 +61,13 @@ if (UCALIB_INTERNAL_ALGLIB)
   # FIXME remove alglib from optional?!
   dep_lists_append(Alglib)
   dep_lists_pkg_recheck(Alglib)
+elseif(NOT ${PNU}_WITH_ALGLIB)
+	if (NOT DEP_LISTS_SOFT_FAIL)
+	  message(FATAL_ERROR "UCALIB: No ALGLIB available (maybe use UCALIB_INTERNAL_ALGLIB?)")
+	else()
+	  message("UCALIB: No ALGLIB available (maybe use UCALIB_INTERNAL_ALGLIB?)")
+	  return()
+	endif()
 endif()
 
 set(${PNU}_HEADERS proxy.hpp ucalib.hpp)
