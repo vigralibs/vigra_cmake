@@ -12,7 +12,6 @@ dep_lists_init()
 ## ENVIRONMENT
 #####################################################
 option(${PNU}_BUILD_LIBIGL "build with (internal) libigl" ON)
-option(${PNU}_INTERNAL_ALGLIB "internal alglib build" OFF)
 
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -49,9 +48,9 @@ dep_lists_pkg_search()
 
 if (NOT ${PNU}_WITH_ALGLIB)
   if (WIN32)
-	option(UCALIB_INTERNAL_ALGLIB "internal alglib build" TRUE)
+    option(UCALIB_INTERNAL_ALGLIB "internal alglib build" TRUE)
   else()
-	option(UCALIB_INTERNAL_ALGLIB "internal alglib build" FALSE)
+    option(UCALIB_INTERNAL_ALGLIB "internal alglib build" FALSE)
   endif()
 else()
   option(UCALIB_INTERNAL_ALGLIB "internal alglib build" FALSE)
