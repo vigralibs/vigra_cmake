@@ -19,7 +19,8 @@ if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -fno-omit-frame-pointer -fPIC -std=c++11 -march=native")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /noOy /W2 /EHsc")
+  #openmp for ceres solver
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /noOy /W2 /EHsc /openmp")
 endif()
 
 # default to static on win shared on others

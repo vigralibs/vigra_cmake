@@ -44,8 +44,11 @@ void proxy_backwards_poly_generate(clif::Mat_<float> proxy, std::vector<cv::Poin
 {
   int progress = 0;
   double sigma = norm(Point2f(idim.x/32,idim.y/32));
-    
-#pragma omp parallel for schedule(dynamic,4) collapse(2)
+#ifndef WIN32
+  #pragma omp parallel for schedule(dynamic,4) collapse(2)
+#else  
+  #pragma omp parallel for schedule(dynamic,4)
+#endif
     for(int y=0;y<proxy[2];y++) {
       for(int x=0;x<proxy[1];x++) {
         int count;

@@ -152,8 +152,12 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
       map.at<cv::Point2f>(y,x) = cv::Point2f(ip.x, ip.y);
     }
   }
-  
-#pragma omp parallel for collapse(2) schedule(dynamic, 128)
+
+#ifndef WIN32
+#pragma omp parallel for schedule(dynamic, 128) collapse(2)
+#else  
+#pragma omp parallel for schedule(dynamic,4)
+#endif
   for(int y=0;y<idim.y-approx_step;y++) {
     for(int x=0;x<idim.x-approx_step;x++) {
       if (y % approx_step == 0 && x % approx_step == 0)
