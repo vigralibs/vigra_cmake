@@ -37,15 +37,16 @@ endif()
 #metamat
 dep_lists_append(MetaMat)
 dep_lists_append(OpenCV OpenCV_INCLUDE_DIRS "" OpenCV_LIBS)
-dep_lists_append(Ceres)
 
 if (WIN32)
   # only required to import the respective targets... (we should export them ourselves?!?)
   set(SuiteSparse_USE_LAPACK_BLAS ON)
   # FIXME this should work (but will try to create BLAS target multiple times...)
-  #list(APPEND ${PNU}_EXPORT_VARS SuiteSparse_USE_LAPACK_BLAS)
+  list(APPEND ${PNU}_EXPORT_VARS SuiteSparse_USE_LAPACK_BLAS)
   dep_lists_append(SuiteSparse)
 endif()
+
+dep_lists_append(Ceres)
 
 dep_lists_append(mm-mesh OPTIONAL)
 # FIXME should also work as PRIVATE (but doesn't with MSVC in Debug, something is exported from alglib in ucalib?!)
