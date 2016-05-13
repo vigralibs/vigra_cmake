@@ -728,12 +728,6 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
     if (isnan(p.x) || isnan(p.y))
       continue;
     
-    if (ray["x"] == 10 && ray["y"] == 10) {
-      std::cout << ray << std::endl;
-      std::cout << p << std::endl;
-      printf("%p - %f\n", &proxy(0, 10, 10, 0, 0, ray["views"]), proxy(0, 10, 10, 0, 0, ray["views"]));
-    }
-    
     double w;
     
     /*if (falloff)
@@ -1193,9 +1187,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   for(_calib_views_limit=0;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(_calib_views_limit*2+1,proxy["views"]))
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   options.max_num_iterations = 5000;*/
-  
-  printf("num views: %d/%d\n", _calib_views_limit, proxy["views"]);
-  
+    
   for(_calib_cams_limit=0;_calib_cams_limit<proxy["cams"];_calib_cams_limit=std::min(_calib_cams_limit*4+1,proxy["cams"])) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   }
