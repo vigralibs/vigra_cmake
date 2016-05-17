@@ -97,9 +97,9 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
   coeffs[0] = wps[0].x;
   for(int i=1;i<x_degree*y_degree;i++)
     coeffs[i] = 0.0;
-  coeffs[9] = wps[0].y;
+  coeffs[x_degree*y_degree] = wps[0].y;
   for(int i=1;i<x_degree*y_degree;i++)
-    coeffs[i+9] = 0.0;
+    coeffs[i+x_degree*y_degree] = 0.0;
   
   ceres::Problem problem_x;
   ceres::Problem problem_y;

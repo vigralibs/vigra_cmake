@@ -40,10 +40,11 @@ using namespace std;
 
 const static int poly_xd = 3, poly_yd = 3;
 
-void proxy_backwards_poly_generate(clif::Mat_<float> proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, Point2i idim)
+void proxy_backwards_poly_generate(clif::Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, Point2i idim, double sigma)
 {
   int progress = 0;
-  double sigma = norm(Point2f(idim.x/32,idim.y/32));
+  if (sigma == 0.0)
+    sigma = norm(Point2f(idim.x/proxy[1],idim.y/proxy[2]))*0.5;
 #ifndef WIN32
   #pragma omp parallel for schedule(dynamic,4) collapse(2)
 #else  
@@ -54,7 +55,7 @@ void proxy_backwards_poly_generate(clif::Mat_<float> proxy, std::vector<cv::Poin
         int count;
         double coeffs[poly_xd*poly_yd*2];
         Point2f c = Point2f((x+0.5)*idim.x/proxy[1],(y+0.5)*idim.y/proxy[2]);
-        double rms = fit_2d_poly_2d<poly_xd,poly_yd>(img_points, world_points, c, coeffs, sigma*0.5, &count);
+        double rms = fit_2d_poly_2d<poly_xd,poly_yd>(img_points, world_points, c, coeffs, sigma, &count);
         Point2f res;
         if (std::isnan(rms) || count < 50
           || rms >= 0.1)
