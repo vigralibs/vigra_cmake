@@ -65,7 +65,7 @@ void proxy_backwards_poly_generate(clif::Mat_<float> &proxy, std::vector<cv::Poi
         proxy(0,x,y) = res.x;
         proxy(1,x,y) = res.y;
 #pragma omp critical
-        printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
+        printf("rms: %3dx%3d %fx%f %f mm (%d points)\n", x, y, res.x, res.y, rms, count);
       }
     }
 }
