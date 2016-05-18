@@ -54,24 +54,21 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
     warped[0] /= warped[2];
     warped[1] /= warped[2];
 
-    /*T xvars[x_degree];
+    T xvars[x_degree];
     T yvar = T(1.0);
     xvars[0] = T(1.0);
     for(int i=1;i<x_degree;i++)
       xvars[i] = xvars[i-1]*warped[0];
     
-    T res_x = T(0.0);
-    T res_y = T(0.0);
+    T res_x = warped[0];
+    T res_y = warped[1];
     for(int j=0;j<y_degree;j++) {
       for(int i=0;i<x_degree;i++) {
         res_x += p[9+j*x_degree+i]*(yvar*xvars[i]);
         res_y += p[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
       }
       yvar = yvar*warped[1];
-    }*/
-    
-    T res_x = warped[0];
-    T res_y = warped[1];
+    }
     
     residuals[0] = (T(val_x_) - res_x)*T(w_);
     residuals[1] = (T(val_y_) - res_y)*T(w_);
@@ -177,10 +174,13 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
       coeffs[i] = 1.0;
     else
       coeffs[i] = 0.0;
-  coeffs[9+0] = wps[0].x;
+  coeffs[2] = wps[0].x;
+  coeffs[5] = wps[0].y;
+    
+  coeffs[9+0] = 1.0;
   for(int i=1;i<x_degree*y_degree;i++)
     coeffs[9+i] = 0.0;
-  coeffs[9+x_degree*y_degree] = wps[0].y;
+  coeffs[9+x_degree*y_degree] = 1.0;
   for(int i=1;i<x_degree*y_degree;i++)
     coeffs[9+i+x_degree*y_degree] = 0.0;
   
@@ -246,24 +246,21 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2
   warped[0] /= warped[2];
   warped[1] /= warped[2];
 
-  /*double xvars[x_degree];
+  double xvars[x_degree];
   double yvar = 1.0;
   xvars[0] = 1.0;
   for(int i=1;i<x_degree;i++)
     xvars[i] = xvars[i-1]*warped[0];
   
-  double res_x = 0.0;
-  double res_y = 0.0;
+  double res_x = warped[0];
+  double res_y = warped[1];
   for(int j=0;j<y_degree;j++) {
     for(int i=0;i<x_degree;i++) {
       res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
       res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
     }
     yvar = yvar*warped[1];
-  }*/
-  
-  double res_x = warped[0];
-  double res_y = warped[1];
+  }
       
   return cv::Point2f(res_x, res_y);
 }

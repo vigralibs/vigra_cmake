@@ -16,7 +16,7 @@ option(${PNU}_BUILD_LIBIGL "build with (internal) libigl" ON)
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -fno-omit-frame-pointer -fPIC -std=c++11 -march=native")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -fno-omit-frame-pointer -fPIC -std=c++11 -march=native -fopenmp")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   #openmp for ceres solver
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /noOy /W2 /EHsc /openmp")
@@ -81,7 +81,7 @@ elseif(NOT ${PNU}_WITH_ALGLIB)
 	endif()
 endif()
 
-set(${PNU}_HEADERS proxy.hpp ucalib.hpp)
+set(${PNU}_HEADERS proxy.hpp ucalib.hpp loess.hpp)
 dep_lists_prepare_env()
 
 #####################################################
