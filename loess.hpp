@@ -40,42 +40,54 @@ template <int x_degree, int y_degree> struct Poly2dError {
   double x_,y_,val_, w_;
 };
 
-
-struct PersError {
-  PersError(double x, double y, double vx, double vy)
-      : x_(x), y_(y), vx_(vx), vy_(vy) {}
+template <int x_degree, int y_degree> struct PolyPers2dError {
+  PolyPers2dError(double x, double y, double valx, double valy, double w)
+      : x_(x), y_(y), val_x_(valx), val_y_(valy), w_(w) {}
       
   template <typename T>
   bool operator()(const T* const p,
                   T* residuals) const {
+    T warped[3];
+    warped[0] = T(x_)*p[0] + T(y_)*p[1] + p[2];
+    warped[1] = T(x_)*p[3] + T(y_)*p[4] + p[5];
+    warped[2] = T(x_)*p[6] + T(y_)*p[7] + p[8];
+    warped[0] /= warped[2];
+    warped[1] /= warped[2];
+
+    /*T xvars[x_degree];
+    T yvar = T(1.0);
+    xvars[0] = T(1.0);
+    for(int i=1;i<x_degree;i++)
+      xvars[i] = xvars[i-1]*warped[0];
     
-    T res[3];
+    T res_x = T(0.0);
+    T res_y = T(0.0);
+    for(int j=0;j<y_degree;j++) {
+      for(int i=0;i<x_degree;i++) {
+        res_x += p[9+j*x_degree+i]*(yvar*xvars[i]);
+        res_y += p[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
+      }
+      yvar = yvar*warped[1];
+    }*/
     
-    res[0] = p[0]*T(x_) + p[1]*T(y_) + p[2];
-    res[1] = p[3]*T(x_) + p[4]*T(y_) + p[5];
-    res[2] = p[6]*T(x_) + p[7]*T(y_) + p[8];
-                    
-    residuals[0] = (T(vx_) - res[0]/res[2]);
-    residuals[1] = (T(vy_) - res[1]/res[2]);
+    T res_x = warped[0];
+    T res_y = warped[1];
+    
+    residuals[0] = (T(val_x_) - res_x)*T(w_);
+    residuals[1] = (T(val_y_) - res_y)*T(w_);
     
     return true;
   }
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(double x, double y, double vx, double vy) {
-    return (new ceres::AutoDiffCostFunction<PersError, 2, 9>(
-                new PersError(x, y, vx, vy)));
+  static ceres::CostFunction* Create(double x, double y, double valx, double valy, double w) {
+    return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+2*x_degree*y_degree>(
+                new PolyPers2dError(x, y, valx, valy, w)));
   }
 
-  double x_,y_,vx_,vy_;
+  double x_,y_,val_x_,val_y_, w_;
 };
-
-
-
-//TODO ignore residuals after below a certain weight!
-//NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double blub(std::vector<cv::Point2f> &ips, double sigma);
 
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
@@ -144,6 +156,66 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
   return sqrt((summary_x.final_cost+summary_y.final_cost)/w_sum);
 }
 
+//TODO ignore residuals after below a certine weight!
+//NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2f center, double *coeffs, double sigma, int *count = NULL)
+{
+  ceres::Solver::Options options;
+  options.max_num_iterations = 1000;
+  options.num_threads = 1;
+  options.minimizer_progress_to_stdout = true;
+  //options.trust_region_strategy_type = ceres::DOGLEG;
+  options.linear_solver_type = ceres::DENSE_QR;
+  options.logging_type = ceres::SILENT;
+  
+  double w_sum = 0.0;
+  
+  cv::Point2f wc(0, 0);
+  
+  for(int i=0;i<9;i++)
+    if (i % 4 == 0)
+      coeffs[i] = 1.0;
+    else
+      coeffs[i] = 0.0;
+  coeffs[9+0] = wps[0].x;
+  for(int i=1;i<x_degree*y_degree;i++)
+    coeffs[9+i] = 0.0;
+  coeffs[9+x_degree*y_degree] = wps[0].y;
+  for(int i=1;i<x_degree*y_degree;i++)
+    coeffs[9+i+x_degree*y_degree] = 0.0;
+  
+  ceres::Problem problem;
+  if (count)
+    (*count) = 0;
+  for(int i=0;i<ips.size();i++) {
+      cv::Point2f ip = ips[i]-center;
+      double w = exp(-(ip.x*ip.x+ip.y*ip.y)/(2.0*sigma*sigma));
+      if (w <= 0.05)
+        continue;
+      if (count)
+        (*count)++;
+      w_sum += w;
+      wc += w*ip;
+      w = sqrt(w); //root to get w after squaring by ceres!
+        ceres::CostFunction* cost_function =
+            PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
+            
+        problem.AddResidualBlock(cost_function,
+                                 NULL,
+                                coeffs);
+      }
+      
+  //if (norm(wc*(1.0/w_sum)) >= 50.0)
+    //return std::numeric_limits<double>::quiet_NaN();  
+  
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+ 
+  //std::cout << summary.FullReport() << "\n";
+  
+  return sqrt((summary.final_cost)/w_sum);
+}
+
 template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, double *coeffs)
 {
   double xvars[x_degree];
@@ -161,6 +233,37 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, 
     }
     yvar = yvar*p.y;
   }
+      
+  return cv::Point2f(res_x, res_y);
+}
+
+template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2f p, double *coeffs)
+{
+  double warped[3];
+  warped[0] = p.x*coeffs[0] + p.y*coeffs[1] + coeffs[2];
+  warped[1] = p.x*coeffs[3] + p.y*coeffs[4] + coeffs[5];
+  warped[2] = p.x*coeffs[6] + p.y*coeffs[7] + coeffs[8];
+  warped[0] /= warped[2];
+  warped[1] /= warped[2];
+
+  /*double xvars[x_degree];
+  double yvar = 1.0;
+  xvars[0] = 1.0;
+  for(int i=1;i<x_degree;i++)
+    xvars[i] = xvars[i-1]*warped[0];
+  
+  double res_x = 0.0;
+  double res_y = 0.0;
+  for(int j=0;j<y_degree;j++) {
+    for(int i=0;i<x_degree;i++) {
+      res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
+      res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
+    }
+    yvar = yvar*warped[1];
+  }*/
+  
+  double res_x = warped[0];
+  double res_y = warped[1];
       
   return cv::Point2f(res_x, res_y);
 }
