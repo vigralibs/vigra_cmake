@@ -1090,7 +1090,7 @@ int filter_pinhole(const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i im
  */
 //proxy.names({"point","x","y","channels","cams","views"});
 //lines.names({"line","x","y","channels","cams"})
-double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel)
+double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 5000;
@@ -1115,7 +1115,8 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   
   Mat_<double> r({proxy.r("channels","cams")});
   Mat_<double> m({2, proxy.r("channels","cams")});
-  Mat_<double> proj({2,proxy.r("channels","cams")});
+  
+  proj.create({2,proxy.r("channels","cams")});
   
   for(auto pos : Idx_It_Dims(r, 0, -1))
     r(pos) = 0;
@@ -1181,12 +1182,12 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   }*/
   
   
-  //options.max_num_iterations = 100;
-  /*_calib_cams_limit = 0;
+  /*options.max_num_iterations = 100;
+  _calib_cams_limit = 0;
   for(_calib_views_limit=0;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(_calib_views_limit*2+1,proxy["views"]))
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);*/
-  //options.max_num_iterations = 5000;
-  
+    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
+  options.max_num_iterations = 5000;*/
+    
   for(_calib_cams_limit=0;_calib_cams_limit<proxy["cams"];_calib_cams_limit=std::min(_calib_cams_limit*4+1,proxy["cams"])) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   }
