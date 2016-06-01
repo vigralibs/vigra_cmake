@@ -177,7 +177,7 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
       cv::Point2d bl = map.at<cv::Point2f>(y_m+approx_step,x_m);
       cv::Point2d br = map.at<cv::Point2f>(y_m+approx_step,x_m+approx_step);
       
-      if (isnan(tl.x) || isnan(tr.x) || isnan(bl.x) || isnan(br.x)) {
+      if (std::isnan(tl.x) || std::isnan(tr.x) || std::isnan(bl.x) || std::isnan(br.x)) {
         map.at<cv::Point2f>(y,x) =  cv::Point2f(std::numeric_limits<float>::quiet_NaN(),std::numeric_limits<float>::quiet_NaN());
         continue;
       }
