@@ -8,7 +8,6 @@ find_package(Git REQUIRED)
 set(DEPENDENCY_LIST)
 
 function(add_dependency DEP_NAME DEP_REPO)
-  message("dsdada: ${PROJECT_SOURCE_DIR}")
   # Determine if the dependency has already been added.
   set(DEP_INDEX)
   list(FIND DEPENDENCY_LIST "${DEP_NAME}" DEP_INDEX)
