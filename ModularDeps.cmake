@@ -4,7 +4,13 @@ endif()
 
 find_package(Git REQUIRED)
 
-function(add_dependency DEP_NAME DEP_REPO)
+function(add_dependency)
+  set(options)
+  set(oneValueArgs NAME REPO)
+  cmake_parse_arguments(AD "${options}" "${oneValueArgs}" "" ${ARGN})
+  set(DEP_NAME "${AD_NAME}")
+  set(DEP_REPO "${AD_REPO}")
+
   # Determine if the dependency has already been satisfied.
   if(${DEP_NAME}_DEP_SATISFIED)
     message(STATUS "The dependency '${DEP_NAME}' is already satisfied.")
