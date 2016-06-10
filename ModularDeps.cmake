@@ -40,7 +40,8 @@ function(add_dependency DEP_NAME DEP_REPO)
   add_subdirectory("${PROJECT_SOURCE_DIR}/deps/${DEP_NAME}")
 
   # Mark the dependency as satisfied.
-  set(${DEP_NAME}_DEP_SATISFIED YES PARENT_SCOPE)
+  set(${DEP_NAME}_DEP_SATISFIED YES CACHE)
+  mark_as_advanced(${DEP_NAME}_DEP_SATISFIED)
 endfunction()
 
 # Mark as included.
