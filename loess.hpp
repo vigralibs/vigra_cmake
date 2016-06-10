@@ -70,8 +70,8 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
       yvar = yvar*warped[1];
     }
     
-    residuals[0] = (T(val_x_) - res_x)*T(w_);
-    residuals[1] = (T(val_y_) - res_y)*T(w_);
+    residuals[0] = sqrt(abs(T(val_x_) - res_x)*T(w_)+1e-18);
+    residuals[1] = sqrt(abs(T(val_y_) - res_y)*T(w_)+1e-18);
     
     return true;
   }
@@ -139,7 +139,7 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
                                 coeffs+x_degree*y_degree);
       }
       
-  if (norm(wc*(1.0/w_sum)) >= 50.0)
+  if (norm(wc*(1.0/w_sum)) >= 5.0)
     return std::numeric_limits<double>::quiet_NaN();  
   
   ceres::Solver::Summary summary_x;
@@ -159,8 +159,9 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
-  options.num_threads = 1;
-  options.minimizer_progress_to_stdout = true;
+  //options.num_threads = 8;
+  //options.num_linear_solver_threads = 8;
+  //options.minimizer_progress_to_stdout = true;
   //options.trust_region_strategy_type = ceres::DOGLEG;
   options.linear_solver_type = ceres::DENSE_QR;
   options.logging_type = ceres::SILENT;
@@ -196,7 +197,6 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
         (*count)++;
       w_sum += w;
       wc += w*ip;
-      w = sqrt(w); //root to get w after squaring by ceres!
         ceres::CostFunction* cost_function =
             PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
             
@@ -212,7 +212,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   ceres::Solve(options, &problem, &summary);
  
   //std::cout << summary.FullReport() << "\n";
-  
+
   return sqrt((summary.final_cost)/w_sum);
 }
 
