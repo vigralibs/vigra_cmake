@@ -40,7 +40,7 @@ function(add_dependency DEP_NAME DEP_REPO)
   add_subdirectory("${PROJECT_SOURCE_DIR}/deps/${DEP_NAME}")
 
   # Mark the dependency as satisfied.
-  set(${DEP_NAME}_DEP_SATISFIED YES CACHE INTERNAL "${DEP_NAME} dependency.")
+  set(${DEP_NAME}_DEP_SATISFIED YES CACHE BOOL "${DEP_NAME} dependency.")
   mark_as_advanced(${DEP_NAME}_DEP_SATISFIED)
 endfunction()
 
