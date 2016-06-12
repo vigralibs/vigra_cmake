@@ -4,15 +4,12 @@ endif()
 
 find_package(Git REQUIRED)
 
-function(add_dependency)
+function(add_dependency AD_NAME)
   # Parse the options.
   set(options)
-  set(oneValueArgs NAME REPO BRANCH COMMIT)
+  set(oneValueArgs REPO BRANCH COMMIT)
   cmake_parse_arguments(AD "${options}" "${oneValueArgs}" "" ${ARGN})
-  # The dep name must always be there.
-  if(NOT AD_NAME)
-    message(FATAL_ERROR "At least the name of a dependency must be specified when using add_dependency().")
-  endif()
+
   # Repo could come from cache variables, or from function option. Cached variable overrides the
   # function argument.
   if(DEPENDENCY_${AD_NAME}_REPO)
