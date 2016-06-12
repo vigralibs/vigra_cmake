@@ -18,6 +18,9 @@ if(VigraAddTestIncluded)
     return()
 endif()
 
+OPTION(AUTOEXEC_TESTS "Automatically execute each test after compilation ?" ON)
+OPTION(AUTOBUILD_TESTS "Compile tests as part of target 'all' (resp. 'ALL_BUILD') ?" OFF)
+
 ADD_CUSTOM_TARGET(check)
 ADD_CUSTOM_TARGET(ctest COMMAND ${CMAKE_CTEST_COMMAND})
 
@@ -59,8 +62,9 @@ FUNCTION(vigra_add_test target)
 
     ADD_DEPENDENCIES(check_cpp ${target})
     ADD_DEPENDENCIES(ctest ${target})
+    ADD_DEPENDENCIES(${target} foundation)
 
-    TARGET_LINK_LIBRARIES(${target} unittest)
+    TARGET_LINK_LIBRARIES(${target} foundation)
     if(AT_LIBRARIES)
         TARGET_LINK_LIBRARIES(${target} ${AT_LIBRARIES})
     endif()
