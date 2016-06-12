@@ -1,4 +1,4 @@
-if(ModularDepsIncluded)
+if(VigraAddDependencyIncluded)
     return()
 endif()
 
@@ -8,22 +8,16 @@ function(add_dependency AD_NAME)
   message(STATUS "Adding dependency '${AD_NAME}'.")
 
   # Determine if the dependency has already been satisfied.
-  if(DEPENDENCY_${AD_NAME}_SATISFIED)
-    message(STATUS "... already satisfied.")
-    return()
-  endif()
-
   # Create the deps/ directory if it does not exist already.
   if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps")
     message(STATUS "Directory '${PROJECT_SOURCE_DIR}/deps' does not exist, creating it.")
     file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/deps")
   endif()
 
-  # Check if the deps/${AD_NAME} already exists.
-  if(EXISTS "${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
-    message(STATUS "Directory '${PROJECT_SOURCE_DIR}/deps/${AD_NAME}' exists. Assuming")
-    message(STATUS "dependency '${AD_NAME}' is satisfied via 'git subtree' or similar.")
-  else()
+  # if(DEPENDENCY_${AD_NAME}_SATISFIED)
+    # message(STATUS "Dependency '${AD_NAME}' is already satisfied.")
+  # elseif(EXISTS "${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
+  if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
 
     # Parse the options.
     set(options)
@@ -56,28 +50,24 @@ function(add_dependency AD_NAME)
       message(FATAL_ERROR "The clone command for '${AD_NAME}' failed. The output is:\n====\n${OUT}\n====")
     endif()
     message(STATUS "'${AD_NAME}' was successfully cloned. The git clone is located at '${PROJECT_SOURCE_DIR}/deps/${AD_NAME}'")
-  endif()
 
+    if(AD_REPO)
+      set(DEPENDENCY_${AD_NAME}_REPO "${AD_REPO}" CACHE STRING "")
+      mark_as_advanced(DEPENDENCY_${AD_NAME}_REPO)
+    endif()
+    if(AD_BRANCH)
+      set(DEPENDENCY_${AD_NAME}_BRANCH "${AD_BRANCH}" CACHE STRING "")
+      mark_as_advanced(DEPENDENCY_${AD_NAME}_BRANCH)
+    endif()
+    if(AD_COMMIT)
+      set(DEPENDENCY_${AD_NAME}_COMMIT "${AD_COMMIT}" CACHE STRING "")
+      mark_as_advanced(DEPENDENCY_${AD_NAME}_COMMIT)
+    endif()
+  endif()
 
   # Add the subdirectory of the dependency.
   add_subdirectory("${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
-
-  # Store dependency info as cached variables.
-  set(DEPENDENCY_${AD_NAME}_SATISFIED YES CACHE INTERNAL "")
-  mark_as_advanced(DEPENDENCY_${AD_NAME}_SATISFIED)
-  if(AD_REPO)
-    set(DEPENDENCY_${AD_NAME}_REPO "${AD_REPO}" CACHE STRING "")
-    mark_as_advanced(DEPENDENCY_${AD_NAME}_REPO)
-  endif()
-  if(AD_BRANCH)
-    set(DEPENDENCY_${AD_NAME}_BRANCH "${AD_BRANCH}" CACHE STRING "")
-    mark_as_advanced(DEPENDENCY_${AD_NAME}_BRANCH)
-  endif()
-  if(AD_COMMIT)
-    set(DEPENDENCY_${AD_NAME}_COMMIT "${AD_COMMIT}" CACHE STRING "")
-    mark_as_advanced(DEPENDENCY_${AD_NAME}_COMMIT)
-  endif()
 endfunction()
 
 # Mark as included.
-set(ModularDepsIncluded YES)
+set(VigraAddDependencyIncluded YES)
