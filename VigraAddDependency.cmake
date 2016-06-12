@@ -5,7 +5,12 @@ endif()
 find_package(Git REQUIRED)
 
 function(add_dependency AD_NAME)
-  message(STATUS "Adding dependency '${AD_NAME}'.")
+  if(TARGET ${AD_NAME})
+    message(STATUS "Dependency '${AD_NAME}' is already satisfied.")
+    return()
+  else()
+    message(STATUS "Adding dependency '${AD_NAME}'.")
+  endif()
 
   # Determine if the dependency has already been satisfied.
   # Create the deps/ directory if it does not exist already.
@@ -14,9 +19,6 @@ function(add_dependency AD_NAME)
     file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/deps")
   endif()
 
-  # if(DEPENDENCY_${AD_NAME}_SATISFIED)
-    # message(STATUS "Dependency '${AD_NAME}' is already satisfied.")
-  # elseif(EXISTS "${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
   if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
 
     # Parse the options.
