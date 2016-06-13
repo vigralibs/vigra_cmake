@@ -1,10 +1,12 @@
-if(VigraAddDependencyIncluded)
+if(VigraAddExternalIncluded)
     return()
 endif()
 
+OPTION(WITH_EXTERNAL_TESTS "Compile and run tests of external packages ?" OFF)
+
 find_package(Git REQUIRED)
 
-function(add_dependency AD_NAME)
+function(vigra_add_external AD_NAME)
   if(TARGET ${AD_NAME})
     message(STATUS "Dependency '${AD_NAME}' is already satisfied.")
     return()
@@ -13,13 +15,13 @@ function(add_dependency AD_NAME)
   endif()
 
   # Determine if the dependency has already been satisfied.
-  # Create the deps/ directory if it does not exist already.
-  if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps")
-    message(STATUS "Directory '${PROJECT_SOURCE_DIR}/deps' does not exist, creating it.")
-    file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/deps")
+  # Create the external/ directory if it does not exist already.
+  if(NOT EXISTS "${PROJECT_SOURCE_DIR}/external")
+    message(STATUS "Directory '${PROJECT_SOURCE_DIR}/external' does not exist, creating it.")
+    file(MAKE_DIRECTORY "${PROJECT_SOURCE_DIR}/external")
   endif()
 
-  if(NOT EXISTS "${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
+  if(NOT EXISTS "${PROJECT_SOURCE_DIR}/external/${AD_NAME}")
 
     # Parse the options.
     set(options)
@@ -44,14 +46,14 @@ function(add_dependency AD_NAME)
     # Try to check out the dependency.
     message(STATUS "Cloning the '${AD_NAME}' dependency.")
     execute_process(COMMAND "${GIT_EXECUTABLE}" "clone" "${AD_REPO}" "${AD_NAME}"
-      WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/deps"
+      WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/external"
       RESULT_VARIABLE RES
       ERROR_VARIABLE OUT
       OUTPUT_VARIABLE OUT)
     if(RES)
       message(FATAL_ERROR "The clone command for '${AD_NAME}' failed. The output is:\n====\n${OUT}\n====")
     endif()
-    message(STATUS "'${AD_NAME}' was successfully cloned. The git clone is located at '${PROJECT_SOURCE_DIR}/deps/${AD_NAME}'")
+    message(STATUS "'${AD_NAME}' was successfully cloned. The git clone is located at '${PROJECT_SOURCE_DIR}/external/${AD_NAME}'")
 
     if(AD_REPO)
       set(DEPENDENCY_${AD_NAME}_REPO "${AD_REPO}" CACHE STRING "")
@@ -68,8 +70,12 @@ function(add_dependency AD_NAME)
   endif()
 
   # Add the subdirectory of the dependency.
-  add_subdirectory("${PROJECT_SOURCE_DIR}/deps/${AD_NAME}")
+  if(NOT WITH_EXTERNAL_TESTS)
+    set(SKIP_TESTS 1)
+  endif()
+  add_subdirectory("${PROJECT_SOURCE_DIR}/external/${AD_NAME}")
+  set(SKIP_TESTS 0)
 endfunction()
 
 # Mark as included.
-set(VigraAddDependencyIncluded YES)
+set(VigraAddExternalIncluded YES)
