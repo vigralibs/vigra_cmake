@@ -44,7 +44,6 @@ function(vigra_add_external AD_NAME)
     endif()
 
     # Try to check out the dependency.
-    message(STATUS "Cloning the '${AD_NAME}' dependency.")
     execute_process(COMMAND "${GIT_EXECUTABLE}" "clone" "${AD_REPO}" "${AD_NAME}"
       WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/external"
       RESULT_VARIABLE RES
@@ -53,7 +52,7 @@ function(vigra_add_external AD_NAME)
     if(RES)
       message(FATAL_ERROR "The clone command for '${AD_NAME}' failed. The output is:\n====\n${OUT}\n====")
     endif()
-    message(STATUS "'${AD_NAME}' was successfully cloned. The git clone is located at '${PROJECT_SOURCE_DIR}/external/${AD_NAME}'")
+    message(STATUS "'${AD_NAME}' was successfully cloned into '${PROJECT_SOURCE_DIR}/external/${AD_NAME}'")
 
     if(AD_REPO)
       set(DEPENDENCY_${AD_NAME}_REPO "${AD_REPO}" CACHE STRING "")
