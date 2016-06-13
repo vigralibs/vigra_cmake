@@ -42,6 +42,11 @@ MACRO(VIGRA_NATIVE_PATH out in)
 ENDMACRO(VIGRA_NATIVE_PATH)
 
 FUNCTION(vigra_add_test target)
+
+    if(SKIP_TESTS)
+        return()
+    endif()
+
     # parse the args
     # Parse the options.
     set(MultiValueArgs SOURCES LIBRARIES)
