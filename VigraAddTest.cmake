@@ -21,6 +21,11 @@ endif()
 OPTION(AUTOEXEC_TESTS "Automatically execute each test after compilation ?" ON)
 OPTION(AUTOBUILD_TESTS "Compile tests as part of target 'all' (resp. 'ALL_BUILD') ?" OFF)
 
+# Store the path to "VigraAddTest.cmake" as a cached, hidden variable.
+# The idea is that in the function below we need to access the path to
+# run_test.sh.in when the function is invoked.
+set(VigraAddTestPath "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "")
+
 if(NOT TARGET check)
     ADD_CUSTOM_TARGET(check)
     ADD_CUSTOM_TARGET(ctest COMMAND ${CMAKE_CTEST_COMMAND})
@@ -113,7 +118,7 @@ FUNCTION(vigra_add_test target)
     IF(MSVC)
         SET(VIGRA_RUN_TEST "${CMAKE_CURRENT_BINARY_DIR}/run_${target}.bat")
         SET(VIGRA_TEST_EXECUTABLE "\"${VIGRA_TEST_EXECUTABLE}\"")  # take care of paths with spaces
-        CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/cmake/run_test.bat.in
+        CONFIGURE_FILE(${VigraAddTestPath}/run_test.bat.in
                        ${VIGRA_RUN_TEST}
                        @ONLY)
     ELSE()
@@ -121,7 +126,7 @@ FUNCTION(vigra_add_test target)
           SET(VIGRA_RUN_TEST "${CMAKE_CURRENT_BINARY_DIR}/${target}")
         ELSE()
           SET(VIGRA_RUN_TEST "${CMAKE_CURRENT_BINARY_DIR}/run_${target}.sh")
-          CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/cmake/run_test.sh.in
+          CONFIGURE_FILE(${VigraAddTestPath}/run_test.sh.in
                          ${VIGRA_RUN_TEST}
                          @ONLY)
           EXECUTE_PROCESS(COMMAND chmod u+x ${VIGRA_RUN_TEST} OUTPUT_QUIET ERROR_QUIET)
