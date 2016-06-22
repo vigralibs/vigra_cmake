@@ -1,1 +1,2 @@
-# impex
+# threadpool
+A simple thread pool.
