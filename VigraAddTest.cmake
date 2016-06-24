@@ -18,6 +18,8 @@ if(VigraAddTestIncluded)
     return()
 endif()
 
+include(CMakeParseArguments)
+
 OPTION(AUTOEXEC_TESTS "Automatically execute each test after compilation ?" ON)
 OPTION(AUTOBUILD_TESTS "Compile tests as part of target 'all' (resp. 'ALL_BUILD') ?" OFF)
 
