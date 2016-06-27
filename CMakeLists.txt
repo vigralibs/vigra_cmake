@@ -7,10 +7,10 @@ project(impex VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vigralibs_cmake")
 include(VigraAddExternal)
 
-vigra_add_external(foundation REPO https://github.com/vigralibs/foundation)
+vigra_add_external(core REPO https://github.com/vigralibs/core)
 
 add_library(threadpool INTERFACE)
-target_link_libraries(threadpool INTERFACE foundation INTERFACE Threads::Threads)
+target_link_libraries(threadpool INTERFACE core INTERFACE Threads::Threads)
 
 target_include_directories(threadpool INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
