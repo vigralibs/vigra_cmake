@@ -18,6 +18,8 @@ if(VigraAddTestIncluded)
     return()
 endif()
 
+include(CMakeParseArguments)
+
 OPTION(AUTOEXEC_TESTS "Automatically execute each test after compilation ?" ON)
 OPTION(AUTOBUILD_TESTS "Compile tests as part of target 'all' (resp. 'ALL_BUILD') ?" OFF)
 
@@ -74,9 +76,9 @@ FUNCTION(vigra_add_test target)
 
     ADD_DEPENDENCIES(check_cpp ${target})
     ADD_DEPENDENCIES(ctest ${target})
-    ADD_DEPENDENCIES(${target} foundation)
+    ADD_DEPENDENCIES(${target} core)
 
-    TARGET_LINK_LIBRARIES(${target} foundation)
+    TARGET_LINK_LIBRARIES(${target} core)
     if(AT_LIBRARIES)
         TARGET_LINK_LIBRARIES(${target} ${AT_LIBRARIES})
     endif()

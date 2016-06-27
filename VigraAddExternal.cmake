@@ -2,6 +2,8 @@ if(VigraAddExternalIncluded)
     return()
 endif()
 
+include(CMakeParseArguments)
+
 OPTION(WITH_EXTERNAL_TESTS "Compile and run tests of external packages ?" OFF)
 
 find_package(Git REQUIRED)
