@@ -17,7 +17,7 @@ const double proj_center_size = 0.1;
 const double extr_center_size = 0.2;
 const double non_center_rest_weigth = 1e-4;
 const double strong_proj_constr_weight = 10.0;
-const double proj_constr_weight = 1e-4;
+const double proj_constr_weight = 0.1;
 const double center_constr_weight = 0.1;
 const double enforce_cams_line = 10.0;
 
@@ -196,6 +196,73 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
   }
 }
 
+namespace ucalib {
+  
+void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, clif::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
+{
+  cv::Point2i fdim(lines[1],lines[2]);
+  
+  cv::Mat_<cv::Point2d> offset(fdim.y, fdim.x);
+  cv::Mat_<cv::Point2d> grad(fdim.y, fdim.x);
+  
+  cv::Point2d f(cameraMatrix.at<double>(0,0), cameraMatrix.at<double>(1,1));
+  
+  for(int y=0;y<fdim.y;y++)
+    for(int x=0;x<fdim.x;x++) {
+      if (std::isnan(lines(0,x,y))) {
+        offset.at<cv::Point2d>(y,x) = cv::Point2d(NAN,NAN);
+        grad.at<cv::Point2d>(y,x) = cv::Point2d(NAN,NAN);
+        continue;
+      }
+        
+      
+      cv::Point2d ip = cv::Point2d((x+0.5-fdim.x*0.5)/fdim.x*idim.x, (y+0.5-fdim.y*0.5)/fdim.y*idim.y);
+      
+      //line expressed in pixel using projection f
+      cv::Vec4d line_unproj = line_correct_proj(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)), f);
+      
+      offset.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[2], line_unproj[3]) - ip;
+      
+      grad.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[0], line_unproj[1]);      
+    }
+    
+    
+    
+/***********************/
+  
+  real_1d_array cx;
+  real_1d_array cy;
+  real_2d_array fx;
+  real_2d_array fy;
+  spline2dinterpolant img_world_spline[2];
+  
+  cx.setlength(fdim.x);
+  cy.setlength(fdim.y);
+  fx.setlength(fdim.y, fdim.x);
+  fy.setlength(fdim.y, fdim.x);
+  
+  for(int x=0;x<fdim.x;x++)
+    cx[x] = (x+0.5)*idim.x/fdim.x;
+  for(int y=0;y<fdim.y;y++)
+    cy[y] = (y+0.5)*idim.y/fdim.y;
+
+  for(int y=0;y<fdim.y;y++)
+    for(int x=0;x<fdim.x;x++) {
+      fx(y, x) = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
+      fy(y, x) = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
+    }
+      
+  spline2dbuildbicubic(cx, cy, fx, fdim.y, fdim.x, img_world_spline[0]);
+  spline2dbuildbicubic(cx, cy, fy, fdim.y, fdim.x, img_world_spline[1]);
+  
+  cv::projectPoints(wpoints, rvec, tvec, cameraMatrix, cv::noArray(), ipoints);
+  
+  for(int i=0;i<wpoints.size();i++)
+    ipoints[i] = search_img_from_world(img_world_spline, ipoints[i], idim);
+}
+
+}
+
 // Generic line error
 struct LineZ3GenericCenterLineError {
   LineZ3GenericCenterLineError(double x, double y)
@@ -305,6 +372,8 @@ struct LineZ3DirPinholeError {
     //compare with projected pinhole camera ray
     residuals[0] = (p[0] - p[2]*line[0])*T(w_);
     residuals[1] = (p[1] - p[2]*line[1])*T(w_);
+    residuals[2] = (p[2]-abs(p[2]));
+    residuals[3] = max(T(0.1)-p[2], T(0))*T(10000);
     
     return true;
   }
@@ -312,8 +381,21 @@ struct LineZ3DirPinholeError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double x, double y, double w = 1.0) {
-    return (new ceres::AutoDiffCostFunction<LineZ3DirPinholeError, 2, 6, 2>(
+    return (new ceres::AutoDiffCostFunction<LineZ3DirPinholeError, 4, 6, 2>(
                 new LineZ3DirPinholeError(x, y, w)));
+  }
+  
+  void print(const double *p, const double *line, const double *residuals, const double *extr) const
+  {
+    printf("%f x %f x 0 -> %f x %f x %f vs %f x %f e %f %f %f\n", x_, y_, p[0], p[1], p[2], line[0], line[1], extr[0], extr[1], extr[2]);
+    if (abs(residuals[0]) > 1000000000000)
+      abort();
+  }
+  void print(const ceres::Jet<double, 8> *p, const ceres::Jet<double, 8> *line, const ceres::Jet<double, 8> *residuals, const ceres::Jet<double, 8> *extr) const
+  {
+    printf("%f x %f x 0 -> %f x %f x %f vs %f x %f e %f %f %f\n", x_, y_, p[0].a, p[1].a, p[2].a, line[0].a, line[1].a, extr[0].a, extr[1].a, extr[2].a);
+    if (abs(residuals[0].a) > 1000000000000)
+      abort();
   }
 
   double x_,y_,w_;
@@ -634,6 +716,9 @@ static void _zline_problem_add_proj_error(ceres::Problem &problem, Mat_<double> 
     int x = pos["x"];
     int y = pos["y"];
     
+    if (pos["cams"] > _calib_cams_limit)
+      continue;
+    
     cv::Point2d ip = cv::Point2d((x+0.5-proxy_size.x*0.5)*img_size.x/proxy_size.x,(y+0.5-proxy_size.y*0.5)*img_size.y/proxy_size.y);
       
     double w = calc_line_pos_weight(cv::Point2i(x, y), proxy_size, center_constr_weight, min_weight);
@@ -763,11 +848,20 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
                                 &lines({2,ray.r("x","cams")}));
       }
       else {
-        ceres::CostFunction* cost_function = 
+        abort();
+        /*ceres::CostFunction* cost_function = 
         LineZ3DirPinholeExtraError::Create(p.x, p.y, w);
         problem.AddResidualBlock(cost_function,
                                 NULL,
                                 &extrinsics({0,ray["views"]}),&extrinsics_rel({0,ray.r("channels","cams")}),
+                                //use only direction part!
+                                &lines({2,ray.r("x","cams")}));
+        */
+        ceres::CostFunction* cost_function = 
+        LineZ3DirPinholeError::Create(p.x, p.y, w);
+        problem.AddResidualBlock(cost_function,
+                                NULL,
+                                &extrinsics_rel({0,ray.r("channels","cams")}),
                                 //use only direction part!
                                 &lines({2,ray.r("x","cams")}));
       }
@@ -989,6 +1083,7 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
       //cam_writer.add(cam_left,col);
       //printf("extr:\n");
       //std::cout << -rot << "\n trans:\n" << -trans << std::endl;
+      //printf("proj %f %f\n", proj(0, pos.r(1,2)), proj(1,pos.r(1,2)));
       //printf("%.3f ", trans.norm());
       
       Mesh line_mesh;
@@ -1029,7 +1124,7 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
       cams.merge(plane);
   }
   
-  printf("proj %f %f\n", proj(0, 0), proj(1,0));
+  //printf("proj %f %f\n", proj(0, 0), proj(1,0));
 }
 
 class _mesh_updater : public ceres::IterationCallback {
@@ -1088,19 +1183,18 @@ int filter_pinhole(const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i im
  *  - per image camera movement (world rotation and translation)
  *  - individual lines (which do not need to converge in an optical center
  */
-//proxy.names({"point","x","y","channels","cams","views"});
-//lines.names({"line","x","y","channels","cams"})
 double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj)
 {
   ceres::Solver::Options options;
-  options.max_num_iterations = 5000;
-  //options.function_tolerance = 1e-12;
-  //options.parameter_tolerance = 1e-12;
-  options.minimizer_progress_to_stdout = true;
+  options.max_num_iterations = 500;
+  //options.function_tolerance = 1e-20;
+  //options.parameter_tolerance = 1e-20;
+  //options.minimizer_progress_to_stdout = true;
   //options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   
   lines.create({IR(4, "line"), proxy.r("x", "cams")});
   extrinsics.create({IR(6, "extrinsics"), IR(proxy["views"], "views")});
+  cout << "extrinsics: " << extrinsics << "\n";
   extrinsics_rel.create({IR(6, "extrinsics"), proxy.r("channels","cams")});
   
   //for threading!
@@ -1110,8 +1204,8 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
     options.linear_solver_type = ceres::SPARSE_SCHUR;
   }
   
-  options.num_threads = 8;
-  options.num_linear_solver_threads = 8;
+  //options.num_threads = 8;
+  //options.num_linear_solver_threads = 8;
   
   Mat_<double> r({proxy.r("channels","cams")});
   Mat_<double> m({2, proxy.r("channels","cams")});
@@ -1123,7 +1217,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   for(auto pos : Idx_It_Dims(m, 0, -1))
     m(pos) = 0;
   for(auto pos : Idx_It_Dims(proj, 0, -1))
-    proj(pos) = 10000;
+    proj(pos) = 2100;
   
   for(auto cam_pos : Idx_It_Dim(extrinsics, "views")) {
     for(int i=0;i<5;i++)
@@ -1140,6 +1234,11 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   
   for(auto line_pos : Idx_It_Dims(lines, 0, -1))
     lines(line_pos) = 0;
+  
+  if (proxy["views"] > 1) {
+    printf("%f x %f \n", proxy(0, 0, 0, 0, 0, 0),proxy(1, 0, 0, 0, 0, 0));
+    printf("%f x %f \n", proxy(0, 0, 0, 0, 0, 1),proxy(1, 0, 0, 0, 0, 1));
+  }
   
   //mesh display
 #ifdef MM_MESH_WITH_VIEWER 
@@ -1181,12 +1280,18 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
     filtered = filter_pinhole(proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.2);
   }*/
   
-  
-  /*options.max_num_iterations = 100;
+  /*_calib_views_limit = 0;
   _calib_cams_limit = 0;
-  for(_calib_views_limit=0;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(_calib_views_limit*2+1,proxy["views"]))
+  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
+  return 0.0;*/
+  
+  options.max_num_iterations = 100;
+  _calib_cams_limit = 0;
+  for(_calib_views_limit=0;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(_calib_views_limit*2+1,proxy["views"])) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  options.max_num_iterations = 5000;*/
+  }
+  if (proxy["views"] > 1) 
+    options.max_num_iterations = 5000;
     
   for(_calib_cams_limit=0;_calib_cams_limit<proxy["cams"];_calib_cams_limit=std::min(_calib_cams_limit*4+1,proxy["cams"])) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
