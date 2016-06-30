@@ -51,9 +51,9 @@
 #include <string>
 #include <vector>
 
-#include "config.hxx"
-#include "diff2d.hxx"
-#include "sized_int.hxx"
+#include <vigra2/config.hxx>
+//#include "diff2d.hxx"
+#include <vigra2/sized_int.hxx>
 
 // possible pixel types:
 // "undefined", "UINT8", "UINT16", "INT16", "UINT32", "INT32", "FLOAT", "DOUBLE"
@@ -77,37 +77,37 @@ namespace vigra
     };
 
     template <>
-    struct TypeAsString<Int8>
+    struct TypeAsString<int8_t>
     {
         static std::string result() { return "INT8"; }
     };
 
     template <>
-    struct TypeAsString<UInt8>
+    struct TypeAsString<uint8_t>
     {
         static std::string result() { return "UINT8"; }
     };
 
     template <>
-    struct TypeAsString<Int16>
+    struct TypeAsString<int16_t>
     {
         static std::string result() { return "INT16"; }
     };
 
     template <>
-    struct TypeAsString<UInt16>
+    struct TypeAsString<uint16_t>
     {
         static std::string result() { return "UINT16"; }
     };
 
     template <>
-    struct TypeAsString<Int32>
+    struct TypeAsString<int32_t>
     {
         static std::string result() { return "INT32"; }
     };
 
     template <>
-    struct TypeAsString<UInt32>
+    struct TypeAsString<uint32_t>
     {
         static std::string result() { return "UINT32"; }
     };

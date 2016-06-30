@@ -38,14 +38,14 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "vigra/stdimage.hxx"
-#include "vigra/impex.hxx"
-#include "vigra/impexalpha.hxx"
-#include "vigra/unittest.hxx"
-#include "vigra/multi_array.hxx"
+#include <vigra2/stdimage.hxx>
+#include <vigra2/impex.hxx>
+#include <vigra2/impexalpha.hxx>
+#include <vigra2/unittest.hxx>
+#include <vigra2/multi_array.hxx>
 
 #if HasTIFF
-# include "vigra/tiff.hxx"
+# include <vigra2/tiff.hxx>
 #endif
 
 using namespace vigra;

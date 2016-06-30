@@ -9,12 +9,22 @@ include(VigraAddExternal)
 
 vigra_add_external(core REPO https://github.com/vigralibs/core)
 
-add_library(threadpool INTERFACE)
-target_link_libraries(threadpool INTERFACE core INTERFACE Threads::Threads)
+add_library(impex src/bmp.cxx)
 
-target_include_directories(threadpool INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+target_include_directories(impex PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    PRIVATE src)
 
-install(DIRECTORY include/ DESTINATION include)
-add_subdirectory(test)
+target_link_libraries(impex core)
+
+
+#add_library(threadpool INTERFACE)
+#target_link_libraries(threadpool INTERFACE core INTERFACE Threads::Threads)
+
+#target_include_directories(threadpool INTERFACE
+#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#  $<INSTALL_INTERFACE:include>)
+
+#install(DIRECTORY include/ DESTINATION include)
+#add_subdirectory(test)

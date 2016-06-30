@@ -35,8 +35,10 @@
 
 #include <iostream>
 #include <fstream>
-#include "vigra/config.hxx"
-#include "vigra/sized_int.hxx"
+
+#include <vigra2/config.hxx>
+#include <vigra2/sized_int.hxx>
+
 #include "error.hxx"
 #include "void_vector.hxx"
 #include "byteorder.hxx"

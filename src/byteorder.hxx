@@ -29,7 +29,7 @@
 /*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
 /*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
 /*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
-/*    OTHER DEALINGS IN THE SOFTWARE.                                   */                
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
 
@@ -41,7 +41,7 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
-#include "vigra/sized_int.hxx"
+#include <vigra2/sized_int.hxx>
 
 namespace vigra
 {
@@ -52,7 +52,7 @@ namespace vigra
             std::string m_string;
 
         public:
-            
+
             // ctor, dtor
 
             host();
@@ -77,8 +77,8 @@ namespace vigra
         void reversebytes( T & x ) const
         {
             const size_t n = sizeof(T);
-            UInt8 t[n];
-            UInt8 * c = reinterpret_cast< UInt8 * >(&x);
+            uint8_t t[n];
+            uint8_t * c = reinterpret_cast< uint8_t * >(&x);
             size_t i;
             for( i = 0; i < n; ++i )
                 t[i] = c[ n - 1 - i ];
@@ -130,20 +130,20 @@ namespace vigra
         }
 
         void convert_to_host( char & ) const {}
-        void convert_to_host( Int8 & ) const {}
-        void convert_to_host( UInt8 & ) const {}
+        void convert_to_host( int8_t & ) const {}
+        void convert_to_host( uint8_t & ) const {}
 
         void convert_to_host( char * , size_t) const {}
-        void convert_to_host( Int8 * , size_t) const {}
-        void convert_to_host( UInt8 * , size_t) const {}
+        void convert_to_host( int8_t * , size_t) const {}
+        void convert_to_host( uint8_t * , size_t) const {}
 
         void convert_from_host( char & ) const {}
-        void convert_from_host( Int8 & ) const {}
-        void convert_from_host( UInt8 & ) const {}
+        void convert_from_host( int8_t & ) const {}
+        void convert_from_host( uint8_t & ) const {}
 
         void convert_from_host( char * , size_t) const {}
-        void convert_from_host( Int8 * , size_t) const {}
-        void convert_from_host( UInt8 * , size_t) const {}
+        void convert_from_host( int8_t * , size_t) const {}
+        void convert_from_host( uint8_t * , size_t) const {}
     };
 
     template< class T >
