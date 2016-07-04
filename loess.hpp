@@ -205,8 +205,8 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
                                 coeffs);
       }
       
-  //if (norm(wc*(1.0/w_sum)) >= 50.0)
-    //return std::numeric_limits<double>::quiet_NaN();  
+  if (norm(wc*(1.0/w_sum)) >= 10.0)
+    return std::numeric_limits<double>::quiet_NaN();  
   
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
