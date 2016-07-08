@@ -5,6 +5,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/shape/shape_transformer.hpp>
+
 
 #include <omp.h>
 
@@ -201,7 +203,7 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
 
 namespace ucalib {
   
-void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, clif::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
+void projectPoints_inverter(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, clif::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
 {
   cv::Point2i fdim(lines[1],lines[2]);
   
@@ -271,6 +273,84 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
     if (i == 60)
       cout << "proj res: " << wpoints[i] << "->" << ipoints[i] << "\n";
   }
+}
+
+
+
+void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, clif::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
+{
+  cv::Point2i fdim(lines[1],lines[2]);
+  
+  cv::Mat_<cv::Point2d> offset(fdim.y, fdim.x);
+  cv::Mat_<cv::Point2d> grad(fdim.y, fdim.x);
+  
+  cv::Point2d f(cameraMatrix.at<double>(0,0), cameraMatrix.at<double>(1,1));
+  
+  for(int y=0;y<fdim.y;y++)
+    for(int x=0;x<fdim.x;x++) {
+      if (std::isnan(lines(0,x,y))) {
+        offset.at<cv::Point2d>(y,x) = cv::Point2d(NAN,NAN);
+        grad.at<cv::Point2d>(y,x) = cv::Point2d(NAN,NAN);
+        continue;
+      }
+        
+      
+      cv::Point2d ip = cv::Point2d((x+0.5-fdim.x*0.5)/fdim.x*idim.x, (y+0.5-fdim.y*0.5)/fdim.y*idim.y);
+      
+      //line expressed in pixel using projection f
+      cv::Vec4d line_unproj = line_correct_proj(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)), f);
+      
+      offset.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[2], line_unproj[3]) - ip;
+      
+      grad.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[0], line_unproj[1]);      
+      
+      /*if (norm(ip - cv::Point2d(-436.364, -252.632)) < 0.1) {
+        cout << "ref ip: " << ip << "line: " << cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) << "\n";
+      }*/
+      //cout << cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) << "\n";
+    }
+    
+  std::vector<cv::Point2f> cv_wpoints, cv_ipoints, perfect_points;
+  std::vector<cv::DMatch> matches;
+  for(int y=0;y<fdim.y;y++)
+    for(int x=0;x<fdim.x;x++) {
+      
+      if (std::isnan(offset.at<cv::Point2d>(y,x).x))
+        continue;
+      
+      
+      double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
+      double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
+      
+      /*if (cv_wpoints.size() && cv::Point2f(wx, wy) == cv_wpoints.back()) {
+        cout << "x: " << (x+0.5)*idim.x/fdim.x << " + " << offset.at<cv::Point2d>(y,x).x << " + " << (1.0/z)*grad.at<cv::Point2d>(y,x).x << "\n";
+      }*/
+      
+      matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
+      cv_wpoints.push_back(cv::Point2f(wx, wy));
+      cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
+      if (norm(cv_ipoints.back() - cv::Point2f(599.98, 611.142)) < 1)
+        cout << "transform do " << cv_wpoints.back() << "->" << cv_ipoints.back() << wx << "x" << wy << " " << x << "x"<< y <<"\n";
+    }
+
+
+  cv::Ptr<cv::ThinPlateSplineShapeTransformer> transform = cv::createThinPlateSplineShapeTransformer(0);
+  transform->estimateTransformation(cv_wpoints, cv_ipoints, matches);
+  
+  cv::projectPoints(wpoints, rvec, tvec, cameraMatrix, cv::noArray(), perfect_points);
+  transform->applyTransformation(perfect_points, ipoints);
+  
+  std::vector<cv::Point2f> ip_check;
+  transform->applyTransformation(cv_wpoints, ip_check);
+  
+  for(int i=0;i<ip_check.size();i++)
+    if (norm(ip_check[i] - cv::Point2f(599.98, 611.142)) < 1)
+      cout << "tps check " << cv_ipoints[i] - ip_check[i] << cv_wpoints[i] << cv_ipoints[i] << "\n";
+      
+      
+  for(int i=0;i<wpoints.size();i++)
+    if (norm(ipoints[i] - cv::Point2f(599.98, 611.142)) < 1)
+      cout << "tps project " << wpoints[i] << perfect_points[i] << ipoints[i] << "\n";
 }
 
 }
@@ -453,22 +533,28 @@ struct LineZ3DirPinholeErrorIS {
     //residuals[0] = (p[0] - p[2]*line[0])*T(w_);
     //residuals[1] = (p[1] - p[2]*line[1])*T(w_);
     if (ix_ == 0.0)
-      residuals[0] = (p[0]/p[2])*T(w_);
+      residuals[0] = T(0);//(p[0]/p[2])*T(w_)*T(10000);
     else
       residuals[0] = /*sqrt(abs*/(p[0]/p[2]*T(ix_)/line[0] - T(ix_))/*+1e-18)*/*T(w_);
     
     if (iy_ == 0.0)
-      residuals[1] = (p[1]/p[2])*T(w_);
+      residuals[1] = T(0);//(p[1]/p[2])*T(w_)*T(10000);
     else
       residuals[1] = /*sqrt(abs*/(p[1]/p[2]*T(iy_)/line[1] - T(iy_))/*+1e-18)*/*T(w_);
+
+    if (ix_ == 0.0 && iy_ == 0.0) {
+      residuals[0] = (p[0]/p[2])*T(w_)*T(10000);
+      residuals[1] = (p[1]/p[2])*T(w_)*T(10000);
+    }
     
-    if (std::is_same<T,double>::value) {
-      if (abs(ix_-(-600+163)) <= 2 && abs(iy_-(-400+147)) <= 2 /*abs((p[0]/p[2]*T(ix_)/line[0] - T(ix_))) >= 0.5 || ix_ == 0.0*/) {
+    
+    /*if (std::is_same<T,double>::value) {
+      if (abs(ix_-(-600+163)) <= 2 && abs(iy_-(-400+147)) <= 2) {
         printf("%fx%f line %fx%f\n", x_, y_, line[0], line[1]);
         printf("%f == %f : %f\n", T(p[0]/p[2]*T(ix_)/line[0]), T(ix_),(p[0]/p[2]*T(ix_)/line[0] - T(ix_)));
         printf("%f == %f : %f\n\n", T(p[0]/p[2]), T(ix_),(p[0]/p[2] - T(ix_)));
       }
-    }
+    }*/
     
     
     //residuals[2] = (p[2]-abs(p[2]));
@@ -1019,13 +1105,13 @@ static void _zline_problem_add_pinhole_lines_is(ceres::Problem &problem, cv::Poi
     }
     
     //keep center looking straight (in local ref system)
-    /*if (ray["y"] == center.y && ray["x"] == center.x) {
+    if (ray["y"] == center.y && ray["x"] == center.x) {
       ceres::CostFunction* cost_function =
       LineZ3CenterDirError::Create();
       problem.AddResidualBlock(cost_function, loss, 
                               &lines({2,ray.r("x","cams")}));
       ray_count++;
-    }*/
+    }
     
     if (w > 0.0) {
       if (ref_cam) {
@@ -1282,10 +1368,10 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
       Mesh line_mesh;
       
       for(auto line_pos : Idx_It_Dims(lines,"x","y")) {
-        if (line_pos["x"] % 4 != 0)
+        /*if (line_pos["x"] % 4 != 0)
           continue;
         if (line_pos["y"] % 4 != 0)
-          continue;
+          continue;*/
         Eigen::Vector3d origin(lines({0,line_pos.r("x","y"),pos.r("channels","cams")}),lines({1,line_pos.r("x","y"),pos.r("channels","cams")}),0.0);
         Eigen::Vector3d dir(lines({2,line_pos.r("x","y"),pos.r("channels","cams")}),lines({3,line_pos.r("x","y"),pos.r("channels","cams")}),-1.0);
         
@@ -1518,9 +1604,21 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   //options.function_tolerance = 1e-20;
   //options.minimizer_progress_to_stdout = true;
+  //FIXME disable until we port extrinsics constraint (center ray == 0) back to it
   refine_pinhole_ispace(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 1e-4, 0.0);
   
+  for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
+    if (lines({0, line_pos.r(1,-1)}) == 0 &&
+        lines({1, line_pos.r(1,-1)}) == 0 &&
+        lines({2, line_pos.r(1,-1)}) == 0.01 &&
+        lines({3, line_pos.r(1,-1)}) == 0.01) {
+          lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+        }
+  }
   
   //_zline_problem_eval_pinhole_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
   
