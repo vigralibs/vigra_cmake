@@ -88,7 +88,7 @@ cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f)
   return cv::Vec4d(l_o.x*f.x,l_o.y*f.y, l_d.x*f.x, l_d.y*f.y);
 }
 
-void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f)
+void get_undist_map_for_depth_inverse(clif::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f)
 {
   cv::Point2i fdim(lines[1],lines[2]);
   
@@ -158,6 +158,124 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
     }
   }
 
+#ifndef WIN32
+#pragma omp parallel for schedule(dynamic, 128) collapse(2)
+#else  
+#pragma omp parallel for schedule(dynamic,4)
+#endif
+  for(int y=0;y<idim.y-approx_step;y++) {
+    for(int x=0;x<idim.x-approx_step;x++) {
+      if (y % approx_step == 0 && x % approx_step == 0)
+        continue;
+      
+      int x_m = x / approx_step * approx_step;
+      int y_m = y / approx_step * approx_step;
+      
+      float xf, xf_i, yf, yf_i;
+      xf_i = (x % approx_step)*1.0/approx_step;
+      xf = 1.0-xf_i;
+      yf_i = (y % approx_step)*1.0/approx_step;
+      yf = 1.0-yf_i;
+      
+      cv::Point2d tl = map.at<cv::Point2f>(y_m,x_m);
+      cv::Point2d tr = map.at<cv::Point2f>(y_m,x_m+approx_step);
+      cv::Point2d bl = map.at<cv::Point2f>(y_m+approx_step,x_m);
+      cv::Point2d br = map.at<cv::Point2f>(y_m+approx_step,x_m+approx_step);
+      
+      if (std::isnan(tl.x) || std::isnan(tr.x) || std::isnan(bl.x) || std::isnan(br.x)) {
+        map.at<cv::Point2f>(y,x) =  cv::Point2f(std::numeric_limits<float>::quiet_NaN(),std::numeric_limits<float>::quiet_NaN());
+        continue;
+      }
+        
+      if (norm(tl - tr) >= 2.0*approx_step) {
+        map.at<cv::Point2f>(y,x) =  cv::Point2f(std::numeric_limits<float>::quiet_NaN(),std::numeric_limits<float>::quiet_NaN());
+        //printf("big step == fail? %f, %dx%d\n", norm(tl - tr),x ,y);
+        continue;
+      }
+      
+      cv::Point2d t = tl*xf + tr*xf_i;
+      cv::Point2d b = bl*xf + br*xf_i;
+      
+      map.at<cv::Point2f>(y,x) = t*yf + b*yf_i;
+    }
+  }
+}
+
+
+void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f)
+{
+  cv::Point2i fdim(lines[1],lines[2]);
+  
+  cv::Mat_<cv::Point2d> offset(fdim.y, fdim.x);
+  cv::Mat_<cv::Point2d> grad(fdim.y, fdim.x);
+  
+  for(int y=0;y<fdim.y;y++)
+    for(int x=0;x<fdim.x;x++) {
+      if (std::isnan(lines(0,x,y))) {
+        offset.at<cv::Point2d>(y,x) = cv::Point2d(NAN,NAN);
+        grad.at<cv::Point2d>(y,x) = cv::Point2d(NAN,NAN);
+        continue;
+      }
+        
+      
+      cv::Point2d ip = cv::Point2d((x+0.5-fdim.x*0.5)/fdim.x*idim.x, (y+0.5-fdim.y*0.5)/fdim.y*idim.y);
+      
+      //line expressed in pixel using projection f
+      cv::Vec4d line_unproj = line_correct_proj(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)), f);
+      
+      offset.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[2], line_unproj[3]) - ip;
+      
+      grad.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[0], line_unproj[1]);      
+      
+      /*if (norm(ip - cv::Point2d(-436.364, -252.632)) < 0.1) {
+        cout << "ref ip: " << ip << "line: " << cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) << "\n";
+      }*/
+      if (norm(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) - cv::Vec4d(-208.803, -0.598069, 0.183888, -0.0177925)) <= 0.1)
+        offset.at<cv::Point2d>(y,x) = cv::Point2d(std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN());
+    }
+    
+  std::vector<cv::Point2f> cv_wpoints, cv_ipoints;
+  std::vector<cv::DMatch> matches;
+  for(int y=0;y<fdim.y;y++)
+    for(int x=0;x<fdim.x;x++) {
+      
+      if (std::isnan(offset.at<cv::Point2d>(y,x).x))
+        continue;
+      
+      
+      double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
+      double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
+      
+      matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
+      cv_wpoints.push_back(cv::Point2f(wx, wy));
+      cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
+      
+      cout << cv_wpoints.back() << (x+0.5)*idim.x/fdim.x << cv_ipoints.back() << "\n";
+    }
+
+
+  cv::Ptr<cv::ThinPlateSplineShapeTransformer> transform = cv::createThinPlateSplineShapeTransformer(0);
+  transform->estimateTransformation(cv_wpoints, cv_ipoints, matches);
+
+  int approx_step = 8;
+  
+  std::vector<cv::Point2f> perfect_points(idim.x/approx_step), ipoints(idim.x/approx_step);
+  printf("calc ipoints\n");
+  int progress = 0;
+//#pragma omp parallel for schedule(dynamic)
+  for(int y=0;y<idim.y;y+=approx_step) {
+    for(int x=0;x<idim.x;x+=approx_step)
+      perfect_points[x/approx_step] = cv::Point2f(x, y);
+
+    transform->applyTransformation(perfect_points, ipoints);
+
+    for(int x=0;x<idim.x;x+=approx_step) {
+      //cout << perfect_points[x/approx_step] << " -> " << ipoints[x/approx_step] << "\n"; 
+      map.at<cv::Point2f>(y,x) = ipoints[x/approx_step];
+    }
+  }
+  
+  
 #ifndef WIN32
 #pragma omp parallel for schedule(dynamic, 128) collapse(2)
 #else  
@@ -322,15 +440,9 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
       double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
       double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
       
-      /*if (cv_wpoints.size() && cv::Point2f(wx, wy) == cv_wpoints.back()) {
-        cout << "x: " << (x+0.5)*idim.x/fdim.x << " + " << offset.at<cv::Point2d>(y,x).x << " + " << (1.0/z)*grad.at<cv::Point2d>(y,x).x << "\n";
-      }*/
-      
       matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
       cv_wpoints.push_back(cv::Point2f(wx, wy));
       cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
-      if (norm(cv_ipoints.back() - cv::Point2f(599.98, 611.142)) < 1)
-        cout << "transform do " << cv_wpoints.back() << "->" << cv_ipoints.back() << wx << "x" << wy << " " << x << "x"<< y <<"\n";
     }
 
 
@@ -342,15 +454,6 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
   
   std::vector<cv::Point2f> ip_check;
   transform->applyTransformation(cv_wpoints, ip_check);
-  
-  for(int i=0;i<ip_check.size();i++)
-    if (norm(ip_check[i] - cv::Point2f(599.98, 611.142)) < 1)
-      cout << "tps check " << cv_ipoints[i] - ip_check[i] << cv_wpoints[i] << cv_ipoints[i] << "\n";
-      
-      
-  for(int i=0;i<wpoints.size();i++)
-    if (norm(ipoints[i] - cv::Point2f(599.98, 611.142)) < 1)
-      cout << "tps project " << wpoints[i] << perfect_points[i] << ipoints[i] << "\n";
 }
 
 }
@@ -533,19 +636,16 @@ struct LineZ3DirPinholeErrorIS {
     //residuals[0] = (p[0] - p[2]*line[0])*T(w_);
     //residuals[1] = (p[1] - p[2]*line[1])*T(w_);
     if (ix_ == 0.0)
-      residuals[0] = T(0);//(p[0]/p[2])*T(w_)*T(10000);
+      //FIXME use neighbours?
+      residuals[0] = (p[0]/p[2])*T(w_)*T(1000);
     else
       residuals[0] = /*sqrt(abs*/(p[0]/p[2]*T(ix_)/line[0] - T(ix_))/*+1e-18)*/*T(w_);
     
     if (iy_ == 0.0)
-      residuals[1] = T(0);//(p[1]/p[2])*T(w_)*T(10000);
+      //FIXME use neighbours?
+      residuals[1] = (p[1]/p[2])*T(w_)*T(1000);
     else
       residuals[1] = /*sqrt(abs*/(p[1]/p[2]*T(iy_)/line[1] - T(iy_))/*+1e-18)*/*T(w_);
-
-    if (ix_ == 0.0 && iy_ == 0.0) {
-      residuals[0] = (p[0]/p[2])*T(w_)*T(10000);
-      residuals[1] = (p[1]/p[2])*T(w_)*T(10000);
-    }
     
     
     /*if (std::is_same<T,double>::value) {
@@ -1585,11 +1685,11 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   return 0.0;*/
   
-  /*options.max_num_iterations = 500;
+  options.max_num_iterations = 100;
   _calib_cams_limit = 0;
-  for(_calib_views_limit=0;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(_calib_views_limit*2+1,proxy["views"])) {
+  for(_calib_views_limit=0;_calib_views_limit<proxy["views"];_calib_views_limit++) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  }*/
+  }
   if (proxy["views"] > 1) 
     options.max_num_iterations = 5000;
     
@@ -1601,7 +1701,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
     filtered = filter_pinhole(proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.2);
   }*/
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
+  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   //options.function_tolerance = 1e-20;
   //options.minimizer_progress_to_stdout = true;
   //FIXME disable until we port extrinsics constraint (center ray == 0) back to it
