@@ -155,7 +155,7 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
 
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2f center, double *coeffs, double sigma, int *count = NULL)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2f center, double *coeffs, double sigma, double scale, int *count = NULL)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
@@ -189,7 +189,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   if (count)
     (*count) = 0;
   for(int i=0;i<ips.size();i++) {
-      cv::Point2f ip = ips[i]-center;
+      cv::Point2f ip = (ips[i]-center);
       double w = exp(-(ip.x*ip.x+ip.y*ip.y)/(2.0*sigma*sigma));
       if (w <= 0.05)
         continue;
@@ -197,6 +197,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
         (*count)++;
       w_sum += w;
       wc += w*ip;
+      ip *= scale;
         ceres::CostFunction* cost_function =
             PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
             
@@ -237,9 +238,10 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, 
   return cv::Point2f(res_x, res_y);
 }
 
-template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2f p, double *coeffs)
+template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2f p, double *coeffs, double scale = 1.0)
 {
   double warped[3];
+  p *= scale;
   warped[0] = p.x*coeffs[0] + p.y*coeffs[1] + coeffs[2];
   warped[1] = p.x*coeffs[3] + p.y*coeffs[4] + coeffs[5];
   warped[2] = p.x*coeffs[6] + p.y*coeffs[7] + coeffs[8];
