@@ -56,7 +56,7 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
         int count;
         double coeffs[9+x_degree*y_degree*2];
         cv::Point2f c = cv::Point2f((x+0.5)*idim.x/proxy[1],(y+0.5)*idim.y/proxy[2]);
-        double rms = fit_2d_pers_poly_2d<x_degree,y_degree>(img_points, world_points, c, coeffs, sigma, &count);
+        double rms = fit_2d_pers_poly_2d<x_degree,y_degree>(img_points, world_points, c, coeffs, sigma, 1.0, &count);
         cv::Point2f res;
         if (std::isnan(rms) || ((!minpoints && count < 50) || (count < minpoints))
           || rms >= 0.1) //FIXME debug large rms!
