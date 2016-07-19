@@ -76,9 +76,9 @@ FUNCTION(vigra_add_test target)
 
     ADD_DEPENDENCIES(check_cpp ${target})
     ADD_DEPENDENCIES(ctest ${target})
-    ADD_DEPENDENCIES(${target} core)
+    ADD_DEPENDENCIES(${target} vigra_core)
 
-    TARGET_LINK_LIBRARIES(${target} core)
+    TARGET_LINK_LIBRARIES(${target} vigra_core)
     if(AT_LIBRARIES)
         TARGET_LINK_LIBRARIES(${target} ${AT_LIBRARIES})
     endif()
