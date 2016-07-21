@@ -38,7 +38,8 @@
 
 #include <map>
 #include <memory>
-#include "vigra/codec.hxx"
+
+#include <vigra2/codec.hxx>
 
 namespace vigra
 {

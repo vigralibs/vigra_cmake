@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 
 enable_testing()
 
-project(vigra_imageio VERSION 0.1 LANGUAGES CXX)
+project(vigra_imageio VERSION 0.1 LANGUAGES C CXX)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vigra_cmake")
 include(VigraAddExternal)
@@ -14,6 +14,9 @@ add_library(vigra_imageio
     src/byteorder.cxx
     #src/codecmanager.cxx
     src/compression.cxx
+    #src/imageinfo.cxx
+    src/rgbe.c
+    src/void_vector.cxx
 )
 
 target_include_directories(vigra_imageio PUBLIC

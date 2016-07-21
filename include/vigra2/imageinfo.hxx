@@ -50,11 +50,12 @@
 
 #include <memory>
 #include <string>
-#include "config.hxx"
-#include "error.hxx"
-#include "diff2d.hxx"
-#include "codec.hxx"
-#include "multi_iterator.hxx"
+
+#include <vigra2/config.hxx>
+#include <vigra2/error.hxx>
+#include <vigra2/shape.hxx>
+#include <vigra2/iterator_nd.hxx>
+#include <vigra2/codec.hxx>
 
 namespace vigra
 {
