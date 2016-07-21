@@ -52,7 +52,7 @@
 #include <vector>
 
 #include <vigra2/config.hxx>
-//#include "diff2d.hxx"
+#include <vigra2/shape.hxx>
 #include <vigra2/sized_int.hxx>
 
 // possible pixel types:
@@ -178,9 +178,9 @@ namespace vigra
             return 0;
         }
 
-        virtual vigra::Diff2D getPosition() const
+        virtual vigra::Shape<2> getPosition() const
         {
-            return vigra::Diff2D();
+            return vigra::Shape<2>();
         }
 
         virtual float getXResolution() const
@@ -192,9 +192,9 @@ namespace vigra
             return 0.0f;
         }
 
-        virtual vigra::Size2D getCanvasSize() const
+        virtual vigra::Shape<2> getCanvasSize() const
         {
-            return vigra::Size2D(this->getWidth(), this->getHeight());
+            return vigra::Shape<2>(this->getWidth(), this->getHeight());
         }
 
         virtual unsigned int getOffset() const = 0;
@@ -202,7 +202,7 @@ namespace vigra
         virtual const void * currentScanlineOfBand( unsigned int ) const = 0;
         virtual void nextScanline() = 0;
 
-        typedef ArrayVector<unsigned char> ICCProfile;
+        typedef std::vector<unsigned char> ICCProfile;
 
         const ICCProfile & getICCProfile() const
         {
@@ -236,10 +236,10 @@ namespace vigra
         virtual void setPixelType( const std::string & ) = 0;
         virtual void finalizeSettings() = 0;
 
-        virtual void setPosition( const vigra::Diff2D & /*pos*/ )
+        virtual void setPosition( const vigra::Shape<2> & /*pos*/ )
         {
         }
-        virtual void setCanvasSize( const vigra::Size2D & /*size*/)
+        virtual void setCanvasSize( const vigra::Shape<2> & /*size*/)
         {
         }
         virtual void setXResolution( float /*xres*/ )
@@ -249,7 +249,7 @@ namespace vigra
         {
         }
 
-        typedef ArrayVector<unsigned char> ICCProfile;
+        typedef std::vector<unsigned char> ICCProfile;
 
         virtual void setICCProfile(const ICCProfile & /* data */)
         {

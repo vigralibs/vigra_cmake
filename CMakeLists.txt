@@ -4,10 +4,10 @@ enable_testing()
 
 project(impex VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vigralibs_cmake")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vigra_cmake")
 include(VigraAddExternal)
 
-vigra_add_external(core REPO https://github.com/vigralibs/core)
+vigra_add_external(vigra_core REPO https://github.com/vigralibs/vigra_core.git)
 
 add_library(impex src/bmp.cxx)
 
@@ -16,7 +16,7 @@ target_include_directories(impex PUBLIC
     $<INSTALL_INTERFACE:include>
     PRIVATE src)
 
-target_link_libraries(impex core)
+target_link_libraries(impex vigra_core)
 
 
 #add_library(threadpool INTERFACE)

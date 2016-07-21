@@ -98,11 +98,11 @@ struct BmpFileHeader
     // attributes
 
     // the magic number
-    UInt16 magic;
+    uint16_t magic;
     // size of the whole file
-    UInt32 size;
+    uint32_t size;
     // offset (from this field) to the data
-    UInt32 offset;
+    uint32_t offset;
 
     // ctor
 
@@ -122,7 +122,7 @@ BmpFileHeader::BmpFileHeader()
 
 void BmpFileHeader::from_stream( std::ifstream & stream, byteorder & bo )
 {
-    UInt16 filemagic;
+    uint16_t filemagic;
     read_field( stream, bo, filemagic );
     vigra_precondition( filemagic == magic, "magic value is incorrect." );
     read_field( stream, bo, size );
@@ -144,23 +144,23 @@ struct BmpInfoHeader
     // attributes
 
     // size of this header in the file
-    UInt32 info_size;
+    uint32_t info_size;
     // image dimensions
-    Int32 width, height;
+    int32_t width, height;
     // number of planes, always set to one
-    UInt16 planes;
+    uint16_t planes;
     // bits per pixel
-    UInt16 bit_count;
+    uint16_t bit_count;
     // compression type
-    UInt32 compression;
+    uint32_t compression;
     // image size in bytes, may be zero for 24 bpp images
-    UInt32 image_size;
+    uint32_t image_size;
     // image resolution
-    Int32 x_pixels_per_meter, y_pixels_per_meter;
+    int32_t x_pixels_per_meter, y_pixels_per_meter;
     // number of used colors, may be zero
-    UInt32 clr_used;
+    uint32_t clr_used;
     // number of important colors, may be zero
-    UInt32 clr_important;
+    uint32_t clr_important;
 
     // methods
 
@@ -170,7 +170,7 @@ struct BmpInfoHeader
 
 void BmpInfoHeader::from_stream( std::ifstream & stream, byteorder & bo )
 {
-    const UInt32 info_impl_size = 40;
+    const uint32_t info_impl_size = 40;
     read_field( stream, bo, info_size );
     vigra_precondition( info_size >= info_impl_size,
                         "info header has a wrong size" );
@@ -229,8 +229,8 @@ struct BmpDecoderImpl
     BmpInfoHeader info_header;
 
     // image containers
-    void_vector< UInt8 > pixels;
-    void_vector< UInt8 > map;
+    void_vector< uint8_t > pixels;
+    void_vector< uint8_t > map;
 
     int scanline;
 
@@ -351,8 +351,8 @@ void BmpDecoderImpl::read_1bit_data ()
         pad_size = 4 - pad_size;
 
     // setup the base pointer at one line after the end
-    UInt8 * base = pixels.data() + image_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size;
+    uint8_t * mover = base;
 
     // read scanlines from bottom to top
     for ( int y = info_header.height - 1; y >= 0; --y ) {
@@ -369,10 +369,10 @@ void BmpDecoderImpl::read_1bit_data ()
                 c = stream.get();
 
             // get the color bit
-            const UInt8 index = ( c >> ( 7 - ( x % 8 ) ) ) & 0x01;
+            const uint8_t index = ( c >> ( 7 - ( x % 8 ) ) ) & 0x01;
 
             // map and assign the pixel
-            const UInt8 * map_base = map.data() + 3 * index;
+            const uint8_t * map_base = map.data() + 3 * index;
             for ( unsigned int i = 0; i < ncomp; ++i )
                 mover[i] = map_base[i];
             mover += ncomp;
@@ -403,8 +403,8 @@ void BmpDecoderImpl::read_4bit_data ()
         pad_size = 4 - pad_size;
 
     // setup the base pointer at one line after the end
-    UInt8 * base = pixels.data() + image_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size;
+    uint8_t * mover = base;
 
     // read scanlines from bottom to top
     for ( int y = info_header.height - 1; y >= 0; --y ) {
@@ -421,10 +421,10 @@ void BmpDecoderImpl::read_4bit_data ()
                 c = stream.get();
 
             // get the color index
-            const UInt8 index = ( c >> ( 1 - ( x % 2 ) ) ) & 0x0f;
+            const uint8_t index = ( c >> ( 1 - ( x % 2 ) ) ) & 0x0f;
 
             // map and assign the pixel
-            const UInt8 * map_base = map.data() + 3 * index;
+            const uint8_t * map_base = map.data() + 3 * index;
             for ( unsigned int i = 0; i < ncomp; ++i )
                 mover[i] = map_base[i];
             mover += ncomp;
@@ -449,8 +449,8 @@ void BmpDecoderImpl::read_rle4_data ()
     pixels.resize (image_size);
 
     // setup the base pointer at the beginning of the last line.
-    UInt8 * base = pixels.data() + image_size - line_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size - line_size;
+    uint8_t * mover = base;
 
     // set the image's background color to black.
     VIGRA_CSTD::memset (pixels.data (), 0, image_size);
@@ -539,7 +539,7 @@ void BmpDecoderImpl::read_rle4_data ()
                     const int nl = (c & 0x0f);
 
                     // paint the the higher-order nibble.
-                    const UInt8 *map_base_h = map.data () + 3*nh;
+                    const uint8_t *map_base_h = map.data () + 3*nh;
                     unsigned int j;
                     for (j = 0; j < ncomp; ++j)
                         mover [j] = map_base_h [j];
@@ -548,7 +548,7 @@ void BmpDecoderImpl::read_rle4_data ()
                         break;
 
                     // paint the lower-order nibble.
-                    const UInt8 *map_base_l = map.data () + 3*nl;
+                    const uint8_t *map_base_l = map.data () + 3*nl;
                     for (j = 0; j < ncomp; ++j)
                         mover [j] = map_base_l [j];
                     mover += ncomp;
@@ -569,13 +569,13 @@ void BmpDecoderImpl::read_rle4_data ()
                 const int nh = (c2 & 0xf0) >> 4;
                 const int nl = (c2 & 0x0f);
                 // paint the higher-order nibble.
-                const UInt8 *map_base_h = map.data () + 3*nh;
+                const uint8_t *map_base_h = map.data () + 3*nh;
                 unsigned int j;
                 for (j = 0; j < ncomp; ++j)
                     mover [j] = map_base_h [j];
                 mover += ncomp;
                 // paint the lower-order nibble.
-                const UInt8 *map_base_l = map.data () + 3*nl;
+                const uint8_t *map_base_l = map.data () + 3*nl;
                 for (j = 0; j < ncomp; ++j)
                     mover [j] = map_base_l [j];
                 mover += ncomp;
@@ -604,8 +604,8 @@ void BmpDecoderImpl::read_8bit_data ()
         pad_size = 4 - pad_size;
 
     // setup the base pointer at one line after the end
-    UInt8 * base = pixels.data() + image_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size;
+    uint8_t * mover = base;
 
     // read scanlines from bottom to top
     for ( int y = info_header.height - 1; y >= 0; --y ) {
@@ -621,7 +621,7 @@ void BmpDecoderImpl::read_8bit_data ()
             const int index = stream.get();
 
             // map and assign the pixel
-            const UInt8 * map_base = map.data() + 3 * index;
+            const uint8_t * map_base = map.data() + 3 * index;
             for ( unsigned int i = 0; i < ncomp; ++i )
                 mover[i] = map_base[i];
             mover += ncomp;
@@ -646,8 +646,8 @@ void BmpDecoderImpl::read_rle8_data ()
     pixels.resize (image_size);
 
     // setup the base pointer at the beginning of the last line.
-    UInt8 * base = pixels.data() + image_size - line_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size - line_size;
+    uint8_t * mover = base;
 
     // set the image's background color to black.
     VIGRA_CSTD::memset (pixels.data (), 0, image_size);
@@ -727,7 +727,7 @@ void BmpDecoderImpl::read_rle8_data ()
                 // then, eventually skip one byte to respect 16 bit boundaries.
                 for (int k = 0; k < c2; ++k) {
                     const int c = stream.get ();
-                    const UInt8 *map_base = map.data () + 3*c;
+                    const uint8_t *map_base = map.data () + 3*c;
                     for (unsigned int j = 0; j < ncomp; ++j)
                         mover [j] = map_base [j];
                     mover += ncomp;
@@ -741,7 +741,7 @@ void BmpDecoderImpl::read_rle8_data ()
             // plain rle: repeat c2 mapped, c1 times.
             // a line break may not happen here.
             for (int i = 0; i < c1; ++i) {
-                const UInt8 *map_base = map.data () + 3*c2;
+                const uint8_t *map_base = map.data () + 3*c2;
                 for (unsigned int j = 0; j < ncomp; ++j)
                     mover [j] = map_base [j];
                 mover += ncomp;
@@ -769,8 +769,8 @@ void BmpDecoderImpl::read_rgb_data ()
     const unsigned int pad_size = (line_size % 4) ? 4 - (line_size % 4) : 0;
 
     // setup the base pointer at one line after the end
-    UInt8 * base = pixels.data() + image_size;
-    UInt8 * mover;
+    uint8_t * base = pixels.data() + image_size;
+    uint8_t * mover;
 
     // read scanlines from bottom to top
     for ( int y = info_header.height - 1; y >= 0; --y ) {
@@ -863,7 +863,7 @@ struct BmpEncoderImpl
     std::ofstream stream;
 
     // image container
-    void_vector< UInt8 > pixels;
+    void_vector< uint8_t > pixels;
 
     int scanline;
 
@@ -985,8 +985,8 @@ void BmpEncoderImpl::write_8bit_data()
     if ( pad_size > 0 )
         pad_size = 4 - pad_size;
 
-    UInt8 * base = pixels.data() + image_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size;
+    uint8_t * mover = base;
 
     // write scanlines, the scanlines are already in bottom-to-top
     // order.
@@ -1014,8 +1014,8 @@ void BmpEncoderImpl::write_rgb_data()
     const unsigned int image_size = info_header.height * line_size;
     const unsigned int pad_size = (line_size % 4) ? 4 - (line_size % 4) : 0;
 
-    UInt8 * base = pixels.data() + image_size;
-    UInt8 * mover = base;
+    uint8_t * base = pixels.data() + image_size;
+    uint8_t * mover = base;
 
     // write scanlines, the scanlines are already in bottom-to-top
     // order.
