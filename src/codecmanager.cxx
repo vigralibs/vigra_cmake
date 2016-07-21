@@ -40,8 +40,9 @@
 #include <iostream>
 #endif
 
-#include "vigra/config.hxx"
-#include "vigra/error.hxx"
+#include <vigra2/config.hxx>
+#include <vigra2/error.hxx>
+
 #include "codecmanager.hxx"
 
 // the codecs

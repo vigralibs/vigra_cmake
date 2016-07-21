@@ -1,6 +1,6 @@
 /************************************************************************/
 /*                                                                      */
-/*      Copyright 2002-2004 by Ullrich Koethe and Gunnar Kedenburg      */
+/*               Copyright 2013-2014 by Ullrich Koethe                  */
 /*                                                                      */
 /*    This file is part of the VIGRA computer vision library.           */
 /*    The VIGRA Website is                                              */
@@ -33,58 +33,40 @@
 /*                                                                      */
 /************************************************************************/
 
-#include <algorithm>
-#include <stdexcept>
 
-#include <vigra2/sized_int.hxx>
+#ifndef VIGRA_COMPRESSION_HXX
+#define VIGRA_COMPRESSION_HXX
 
-#include "byteorder.hxx"
+#include <vigra2/config.hxx>
+#include <vigra2/error.hxx>
+
+#include <vector>
+
+namespace vigra {
+
+enum CompressionMethod {  DEFAULT_COMPRESSION=-2,  // use default method (depending on context)
+                          NO_COMPRESSION=-1,       // don't compress
+                          ZLIB_NONE=0, // no compression using zlib
+                          ZLIB_FAST=1, // fastest compression using zlib
+                          ZLIB=6,      // zlib default compression level
+                          ZLIB_BEST=9, // highest compression using zlib
+                          LZ4          // very fast LZ4 algorithm
+                       };
+
+/** Compress the source buffer.
+
+    The destination array will be resized as required.
+*/
+VIGRA_EXPORT void compress(char const * source, std::size_t size, std::vector<char> & dest, CompressionMethod method);
+
+/** Uncompress the source buffer when the uncompressed size is known.
+
+    The destination buffer must be allocated to the correct size.
+*/
+VIGRA_EXPORT void uncompress(char const * source, std::size_t srcSize,
+                             char * dest, std::size_t destSize, CompressionMethod method);
 
 
-namespace vigra
-{
-    const byteorder::host byteorder::m_host;
+} // namespace vigra
 
-    byteorder::host::host()
-    {
-        // byteorder check: if the first byte is the least significant,
-        // we have little endian byteorder.
-        uintmax_t testint = 0x01;
-        uint8_t * testchar = reinterpret_cast< uint8_t * >(&testint);
-        if ( testchar[0] == 0x01 )
-            m_string = "little endian";
-        else
-            m_string = "big endian";
-    }
-
-    const std::string & byteorder::host::get() const
-    {
-        return m_string;
-    }
-
-    const std::string & byteorder::get_host_byteorder() const
-    {
-        return m_host.get();
-    }
-
-    byteorder::byteorder()
-    {
-        set( m_host.get() );
-    }
-
-    byteorder::byteorder( const std::string & s )
-    {
-        set(s);
-    }
-
-    const std::string & byteorder::get() const
-    {
-        return m_string;
-    }
-
-    void byteorder::set( const std::string & s )
-    {
-        m_string = s;
-        native = get_host_byteorder() == s;
-    }
-}
+#endif // VIGRA_COMPRESSION_HXX
