@@ -38,8 +38,9 @@
 #define VIGRA_IMPEX_HDR_HXX
 
 #include <vector>
-#include "vigra/diff2d.hxx"
-#include "vigra/codec.hxx"
+
+#include <vigra2/shape.hxx>
+#include <vigra2/codec.hxx>
 
 namespace vigra {
 
@@ -97,7 +98,7 @@ namespace vigra {
         void setCompressionType( const std::string &, int = -1 );
         void setPixelType( const std::string & );
 
-        void setPosition( const vigra::Diff2D & pos );
+        void setPosition( const vigra::Shape<2> & pos );
         void setXResolution( float xres );
         void setYResolution( float yres );
 

@@ -33,14 +33,17 @@
 /*                                                                      */
 /************************************************************************/
 
-#include "vigra/sized_int.hxx"
+#include <vigra2/sized_int.hxx>
+
 #include "error.hxx"
 #include "hdr.hxx"
 #include "auto_file.hxx"
 #include "void_vector.hxx"
+
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+
 #include "rgbe.h"
 
 extern "C"
@@ -356,7 +359,7 @@ namespace vigra {
         pimpl->pixeltype = "FLOAT";
     }
 
-    void HDREncoder::setPosition( const vigra::Diff2D &)
+    void HDREncoder::setPosition( const vigra::Shape<2> &)
     {
     }
 
@@ -387,4 +390,3 @@ namespace vigra {
     void HDREncoder::close() {}
     void HDREncoder::abort() {}
 }
-

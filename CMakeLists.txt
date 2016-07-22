@@ -15,7 +15,9 @@ add_library(vigra_imageio
     #src/codecmanager.cxx
     src/compression.cxx
     src/exr.cxx
+    src/hdr.cxx
     #src/imageinfo.cxx
+    src/lz4.c
     src/pnm.cxx
     src/rgbe.c
     #src/sifImport.cxx
