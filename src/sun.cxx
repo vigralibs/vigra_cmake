@@ -29,18 +29,21 @@
 /*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
 /*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
 /*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
-/*    OTHER DEALINGS IN THE SOFTWARE.                                   */                
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
 
 #include <fstream>
 #include <stdexcept>
-#include "vigra/config.hxx"
-#include "vigra/sized_int.hxx"
-#include "error.hxx"
+
+#include <vigra2/config.hxx>
+#include <vigra2/sized_int.hxx>
+#include <vigra2/error.hxx>
+
 #include "byteorder.hxx"
-#include "void_vector.hxx"
+#include "error.hxx"
 #include "sun.hxx"
+#include "void_vector.hxx"
 
 // magic number
 #define RAS_MAGIC         0x59A66A95
@@ -88,7 +91,7 @@ namespace vigra {
         desc.bandNumbers.resize(2);
         desc.bandNumbers[0] = 1;
         desc.bandNumbers[1] = 3;
-        
+
         return desc;
     }
 
@@ -104,7 +107,7 @@ namespace vigra {
 
     struct SunHeader
     {
-        typedef UInt32 field_type;
+        typedef uint32_t field_type;
 
         // attributes
 
@@ -145,8 +148,8 @@ namespace vigra {
         SunHeader header;
         std::ifstream stream;
         byteorder bo;
-        void_vector< UInt8 > maps, bands;
-        UInt32 components, row_stride;
+        void_vector< uint8_t > maps, bands;
+        uint32_t components, row_stride;
         bool recode;
 
         // methods
@@ -160,12 +163,12 @@ namespace vigra {
 
     SunDecoderImpl::SunDecoderImpl( const std::string & filename )
 #ifdef VIGRA_NEED_BIN_STREAMS
-        : stream( filename.c_str(), std::ios::binary ), 
+        : stream( filename.c_str(), std::ios::binary ),
 #else
-        : stream( filename.c_str() ), 
+        : stream( filename.c_str() ),
 #endif
-          bo ("big endian"), 
-          maps (0), 
+          bo ("big endian"),
+          maps (0),
           bands (0),
           recode (false)
     {
@@ -176,7 +179,7 @@ namespace vigra {
             msg += "'.";
             vigra_precondition (0, msg.c_str ());
         }
-        
+
         // read the magic number, adjust byte order if necessary
         SunHeader::field_type magic;
         read_field (stream, bo, magic);
@@ -237,16 +240,16 @@ namespace vigra {
         // recode if necessary
         if (recode) {
 
-            void_vector <UInt8> recode_bands;
+            void_vector <uint8_t> recode_bands;
 
             if (header.depth == 1) {
 
-                // expand to UInt8.
+                // expand to uint8_t.
                 recode_bands.resize (header.width);
                 for (unsigned int i = 0; i < header.width; ++i) {
 
                     // there are eight pixels in each byte.
-                    const UInt8 b = bands [i/8];
+                    const uint8_t b = bands [i/8];
                     recode_bands [i] = b >> i%8 & 0x01;
                 }
 
@@ -257,13 +260,13 @@ namespace vigra {
             // color map the scanline.
             if (header.maptype == RMT_EQUAL_RGB) {
 
-                // map from UInt8 to rgb
+                // map from uint8_t to rgb
                 recode_bands.resize (3*header.width);
                 const unsigned int mapstride = header.maplength/3;
-                UInt8 *recode_mover = recode_bands.data ();
+                uint8_t *recode_mover = recode_bands.data ();
                 for (unsigned int i = 0; i < header.width; ++i) {
                     // find out the pointer to the red color
-                    UInt8 *map_mover = maps.data () + bands [i];
+                    uint8_t *map_mover = maps.data () + bands [i];
                     // red
                     *recode_mover++ = *map_mover;
                     map_mover += mapstride;
@@ -273,10 +276,10 @@ namespace vigra {
                     // blue
                     *recode_mover++ = *map_mover;
                 }
-                
+
             } else if (header.maptype == RMT_RAW) {
 
-                // map from UInt8 to UInt8
+                // map from uint8_t to uint8_t
                 recode_bands.resize (header.width);
                 for (unsigned int i = 0; i < header.width; ++i)
                     recode_bands [i] = maps [bands [i]];
@@ -291,7 +294,7 @@ namespace vigra {
         if (header.type == RT_STANDARD && header.maptype != RMT_EQUAL_RGB
             && components == 3) {
 
-            void_vector <UInt8> recode_bands (3*header.width);
+            void_vector <uint8_t> recode_bands (3*header.width);
             for (unsigned int i = 0; i < header.width; ++i) {
                 recode_bands [3*i]   = bands [3*i+2];
                 recode_bands [3*i+1] = bands [3*i+1];
@@ -363,8 +366,8 @@ namespace vigra {
         SunHeader header;
         std::ofstream stream;
         byteorder bo;
-        void_vector< UInt8 > bands;
-        UInt32 components, row_stride;
+        void_vector< uint8_t > bands;
+        uint32_t components, row_stride;
         bool finalized;
 
         // methods
@@ -379,9 +382,9 @@ namespace vigra {
 
     SunEncoderImpl::SunEncoderImpl( const std::string & filename )
 #ifdef VIGRA_NEED_BIN_STREAMS
-        : stream( filename.c_str(), std::ios::binary ), 
+        : stream( filename.c_str(), std::ios::binary ),
 #else
-        : stream( filename.c_str() ), 
+        : stream( filename.c_str() ),
 #endif
           bo("big endian"),
           bands(0), finalized(false)
@@ -433,7 +436,7 @@ namespace vigra {
     {
         if ( components == 3 ) {
             // rgb -> bgr
-            void_vector< UInt8 > recode_bands(bands.size());
+            void_vector< uint8_t > recode_bands(bands.size());
             for ( unsigned int i = 0; i < header.width; ++i ) {
                 recode_bands[ 3 * i ] = bands[ 3 * i + 2 ];
                 recode_bands[ 3 * i + 1 ] = bands[ 3 * i + 1 ];

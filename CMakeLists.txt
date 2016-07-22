@@ -14,8 +14,11 @@ add_library(vigra_imageio
     src/byteorder.cxx
     #src/codecmanager.cxx
     src/compression.cxx
+    src/exr.cxx
     #src/imageinfo.cxx
     src/rgbe.c
+    #src/sifImport.cxx
+    src/sun.cxx
     src/void_vector.cxx
 )
 
