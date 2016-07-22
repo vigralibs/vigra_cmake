@@ -17,12 +17,18 @@ add_library(vigra_imageio
     src/exr.cxx
     src/gif.cxx
     src/hdr.cxx
+    #src/hdf5impex.cxx
+    #src/hdf5_rf_impex.cxx
+    src/iccjpeg.c
     #src/imageinfo.cxx
+    src/jpeg.cxx
     src/lz4.c
+    src/png.cxx
     src/pnm.cxx
     src/rgbe.c
     #src/sifImport.cxx
     src/sun.cxx
+    src/tiff.cxx
     src/viff.cxx
     src/void_vector.cxx
 )
