@@ -19,6 +19,7 @@ add_library(vigra_imageio
     src/rgbe.c
     #src/sifImport.cxx
     src/sun.cxx
+    src/viff.cxx
     src/void_vector.cxx
 )
 
