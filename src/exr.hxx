@@ -37,7 +37,7 @@
 #ifndef VIGRA_IMPEX_EXR_HXX
 #define VIGRA_IMPEX_EXR_HXX
 
-#include "vigra/codec.hxx"
+#include <vigra2/codec.hxx>
 
 // EXR - OpenEXR
 
@@ -76,8 +76,8 @@ namespace vigra {
         unsigned int getNumExtraBands() const;
         float getXResolution() const;
         float getYResolution() const;
-        Diff2D getPosition() const;
-        Size2D getCanvasSize() const;
+        Shape<2> getPosition() const;
+        Shape<2> getCanvasSize() const;
 
         unsigned int getOffset() const;
 
@@ -108,8 +108,8 @@ namespace vigra {
         void setCompressionType( const std::string &, int = -1 );
         void setPixelType( const std::string & );
 
-        void setPosition( const Diff2D & pos );
-        void setCanvasSize( const Size2D & pos );
+        void setPosition( const Shape<2> & pos );
+        void setCanvasSize( const Shape<2> & pos );
         void setXResolution( float xres );
         void setYResolution( float yres );
 

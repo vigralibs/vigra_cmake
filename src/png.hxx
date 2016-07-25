@@ -46,7 +46,7 @@
 #ifndef VIGRA_IMPEX_PNG_HXX
 #define VIGRA_IMPEX_PNG_HXX
 
-#include "vigra/codec.hxx"
+#include <vigra2/codec.hxx>
 
 // PNG - Portable Network Graphics
 
@@ -85,7 +85,7 @@ namespace vigra {
         unsigned int getNumExtraBands() const;
     float getXResolution() const;
     float getYResolution() const;
-        Diff2D getPosition() const;
+        Shape<2> getPosition() const;
 
         unsigned int getOffset() const;
 
@@ -116,7 +116,7 @@ namespace vigra {
         void setCompressionType( const std::string &, int = -1 );
         void setPixelType( const std::string & );
 
-        void setPosition( const Diff2D & pos );
+        void setPosition( const Shape<2> & pos );
         void setXResolution( float xres );
         void setYResolution( float yres );
 

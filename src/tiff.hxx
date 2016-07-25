@@ -48,8 +48,8 @@
 #define VIGRA_IMPEX_TIFF_HXX
 
 #include <vector>
-#include "vigra/diff2d.hxx"
-#include "vigra/codec.hxx"
+#include <vigra2/shape.hxx>
+#include <vigra2/codec.hxx>
 
 namespace vigra {
 
@@ -84,8 +84,8 @@ namespace vigra {
         void setImageIndex(unsigned int);
         unsigned int getImageIndex() const;
 
-        Diff2D getPosition() const;
-        Size2D getCanvasSize() const;
+        Shape<2> getPosition() const;
+        Shape<2> getCanvasSize() const;
         float getXResolution() const;
         float getYResolution() const;
 
@@ -123,8 +123,8 @@ namespace vigra {
         void setCompressionType( const std::string &, int = -1 );
         void setPixelType( const std::string & );
 
-        void setPosition( const vigra::Diff2D & pos );
-        void setCanvasSize( const Size2D & pos );
+        void setPosition( const Shape<2> & pos );
+        void setCanvasSize( const Shape<2> & pos );
         void setXResolution( float xres );
         void setYResolution( float yres );
 

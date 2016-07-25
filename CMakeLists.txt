@@ -12,7 +12,7 @@ vigra_add_external(vigra_core REPO https://github.com/vigralibs/vigra_core.git)
 add_library(vigra_imageio
     src/bmp.cxx
     src/byteorder.cxx
-    #src/codecmanager.cxx
+    src/codecmanager.cxx
     src/compression.cxx
     src/exr.cxx
     src/gif.cxx
