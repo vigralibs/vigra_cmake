@@ -66,7 +66,7 @@ namespace vigra {
 
  /** \addtogroup VigraSIFImport Import of Images from Andor Cameras
 
-    Read an Andor SIF file into a MultiArrayView.
+    Read an Andor SIF file into a ArrayViewND.
 */
 //@{
 
@@ -113,15 +113,15 @@ class SIFImportInfo
 
         /** Get the number of dimensions of the dataset represented by this info object.
          */
-        VIGRA_EXPORT MultiArrayIndex numDimensions() const;
+        VIGRA_EXPORT ArrayIndex numDimensions() const;
 
         /** Get the shape of the dataset represented by this info object.
          */
-        VIGRA_EXPORT ArrayVector<size_t> const & shape() const;
+        VIGRA_EXPORT std::vector<size_t> const & shape() const;
 
         /** Get the shape (length) of the dataset along dimension \a dim.
          */
-        VIGRA_EXPORT MultiArrayIndex shapeOfDimension(const int dim) const;
+        VIGRA_EXPORT ArrayIndex shapeOfDimension(const int dim) const;
 
         /** Get the offset to the beginning of the actual data.
             Everything before this point belongs to the
@@ -151,7 +151,7 @@ class SIFImportInfo
 
     private:
         const char* m_filename;
-        ArrayVector<size_t> m_dims;
+        std::vector<size_t> m_dims;
         std::ptrdiff_t m_offset;
         int mod;
         int left, right, bottom, top;
@@ -180,7 +180,7 @@ class SIFImportInfo
     \code
     namespace vigra {
         void
-        readSIF(const SIFImportInfo &info, MultiArrayView<3, float> array);
+        readSIF(const SIFImportInfo &info, ArrayViewND<3, float> array);
     }
     \endcode
 
@@ -199,17 +199,17 @@ class SIFImportInfo
     readSIF(info, in);
     \endcode
 */
-VIGRA_EXPORT void readSIF(const SIFImportInfo &info, MultiArrayView<3, float> array);
+VIGRA_EXPORT void readSIF(const SIFImportInfo &info, ArrayViewND<3, float> array);
 
-template <unsigned int N, class T, class S>
-void readSIF(const SIFImportInfo &, MultiArrayView<N, T, S>)
+template <unsigned int N, class T>
+void readSIF(const SIFImportInfo &, ArrayViewND<N, T>)
 {
-    vigra_precondition(false, "readSIF(): Destination array must be MultiArrayView<3, float>.");
+    vigra_precondition(false, "readSIF(): Destination array must be ArrayViewND<3, float>.");
 }
 
-inline void readSIF(const SIFImportInfo &info, MultiArrayView<3, float, UnstridedArrayTag> array)
+inline void readSIF(const SIFImportInfo &info, ArrayViewND<3, float> array)
 {
-    readSIF(info, MultiArrayView<3, float>(array));
+    readSIF(info, ArrayViewND<3, float>(array));
 }
 
 /**
@@ -220,23 +220,23 @@ inline void readSIF(const SIFImportInfo &info, MultiArrayView<3, float, Unstride
     SIFImportInfo info(filename);
 
     // create a 3D array of appropriate size
-    MultiArray<3, float> in(Shape3(info.width(), info.height(), 1));
+    MultiArray<3, float> in(Shape<3>(info.width(), info.height(), 1));
 
-    readBlock(info, Shape3(0,0,0), Shape3(w,h,1), im); // read the first frame only
+    readBlock(info, Shape<3>(0,0,0), Shape<3>(w,h,1), im); // read the first frame only
 
     \endcode
 */
-VIGRA_EXPORT void readSIFBlock(const SIFImportInfo &info, Shape3 offset, Shape3 shape, MultiArrayView<3, float> array);
+VIGRA_EXPORT void readSIFBlock(const SIFImportInfo &info, Shape<3> offset, Shape<3> shape, ArrayViewND<3, float> array);
 
-template <unsigned int N, class T, class S>
-void readSIFBlock(const SIFImportInfo &, Shape3, Shape3, MultiArrayView<N, T, S>)
+template <unsigned int N, class T>
+void readSIFBlock(const SIFImportInfo &, Shape<3>, Shape<3>, ArrayViewND<N, T>)
 {
-    vigra_precondition(false, "readSIFBlock(): Destination array must be MultiArrayView<3, float>.");
+    vigra_precondition(false, "readSIFBlock(): Destination array must be ArrayViewND<3, float>.");
 }
 
-inline void readSIFBlock(const SIFImportInfo &info, Shape3 offset, Shape3 shape, MultiArrayView<3, float, UnstridedArrayTag> array)
+inline void readSIFBlock(const SIFImportInfo &info, Shape<3> offset, Shape<3> shape, ArrayViewND<3, float> array)
 {
-    readSIFBlock(info, offset, shape, MultiArrayView<3, float>(array));
+    readSIFBlock(info, offset, shape, ArrayViewND<3, float>(array));
 }
 
 VIGRA_EXPORT std::ostream& operator<<(std::ostream& os, const SIFImportInfo& info);

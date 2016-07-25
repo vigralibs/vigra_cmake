@@ -114,9 +114,9 @@ int SIFImportInfo::stacksize() const {    return m_dims[2]; }
 std::ptrdiff_t SIFImportInfo::getOffset() const {    return m_offset; }
 const char * SIFImportInfo::getFileName() const  {    return m_filename;    }
 
-MultiArrayIndex SIFImportInfo::numDimensions() const { return 3; } // alway 3D data
-ArrayVector<size_t> const & SIFImportInfo::shape() const {return m_dims; }
-MultiArrayIndex SIFImportInfo::shapeOfDimension(const int dim) const { return m_dims[dim]; }
+ArrayIndex SIFImportInfo::numDimensions() const { return 3; } // alway 3D data
+std::vector<size_t> const & SIFImportInfo::shape() const {return m_dims; }
+ArrayIndex SIFImportInfo::shapeOfDimension(const int dim) const { return m_dims[dim]; }
 
 
 
@@ -247,29 +247,29 @@ SIFImportInfo::SIFImportInfo(const char* filename) :
 
 }
 
-// this function only works for MultiArrayView<3, float> so we don't use a template here.
-void readSIF(const SIFImportInfo &info, MultiArrayView<3, float> array)
-{
-    readSIFBlock(info, Shape3(0,0,0), Shape3(info.width(), info.height(), info.stacksize()), array);
-}
+// // this function only works for ArrayViewND<3, float> so we don't use a template here.
+// void readSIF(const SIFImportInfo &info, ArrayViewND<3, float> array)
+// {
+//     readSIFBlock(info, Shape<3>(0,0,0), Shape<3>(info.width(), info.height(), info.stacksize()), array);
+// }
 
-void readSIFBlock(const SIFImportInfo &info, Shape3 offset, Shape3 shape, MultiArrayView<3, float> array)
-{
-    vigra_precondition(array.isUnstrided(), "readSIFBlock(): Destination array must have consecutive memory.");
-    vigra_precondition(sizeof(float) == 4, "SIF files can only be read into MultiArrayView<float32>. On your machine a float has more than 4 bytes.");
-    vigra_precondition(offset[0]==0 && shape[0]==info.width() && offset[1]==0 && shape[1]==info.height(), "readSIFBlock(): only complete frames implemented.");
-    float * memblock =  array.data();        // here we assume that MultiArray hat float32 values as the sif raw data!!
-
-    std::ifstream file (info.getFileName(), std::ios::in|std::ios::binary);
-    vigra_precondition(file.is_open(), "Unable to open sif file");
-
-    byteorder bo = byteorder("little endian");  // SIF file is little-endian
-
-    std::ptrdiff_t pos = file.tellg();        // pointer to beginning of the file
-    file.seekg(pos+info.getOffset()+offset[2]*info.width()*info.height()*4);
-    read_array( file, bo, memblock, shape[0]*shape[1]*shape[2] );
-    file.close();
-}
+// void readSIFBlock(const SIFImportInfo &info, Shape<3> offset, Shape<3> shape, ArrayViewND<3, float> array)
+// {
+//     vigra_precondition(array.isUnstrided(), "readSIFBlock(): Destination array must have consecutive memory.");
+//     vigra_precondition(sizeof(float) == 4, "SIF files can only be read into ArrayViewND<float32>. On your machine a float has more than 4 bytes.");
+//     vigra_precondition(offset[0]==0 && shape[0]==info.width() && offset[1]==0 && shape[1]==info.height(), "readSIFBlock(): only complete frames implemented.");
+//     float * memblock =  array.data();        // here we assume that MultiArray hat float32 values as the sif raw data!!
+//
+//     std::ifstream file (info.getFileName(), std::ios::in|std::ios::binary);
+//     vigra_precondition(file.is_open(), "Unable to open sif file");
+//
+//     byteorder bo = byteorder("little endian");  // SIF file is little-endian
+//
+//     std::ptrdiff_t pos = file.tellg();        // pointer to beginning of the file
+//     file.seekg(pos+info.getOffset()+offset[2]*info.width()*info.height()*4);
+//     read_array( file, bo, memblock, shape[0]*shape[1]*shape[2] );
+//     file.close();
+// }
 
 std::ostream& operator<<(std::ostream& os, const SIFImportInfo& info)
 {

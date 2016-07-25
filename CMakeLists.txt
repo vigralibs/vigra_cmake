@@ -26,7 +26,7 @@ add_library(vigra_imageio
     src/png.cxx
     src/pnm.cxx
     src/rgbe.c
-    #src/sifImport.cxx
+    src/sifImport.cxx
     src/sun.cxx
     src/tiff.cxx
     src/viff.cxx
