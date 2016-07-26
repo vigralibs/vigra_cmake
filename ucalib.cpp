@@ -1457,7 +1457,7 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
       //FIXME must exactly invert those operations?
       Mesh cam = mesh_cam().scale(20);
       cam -= trans;
-      cam.rotate(-rot);
+      cam.rotate(rot);
       cams.merge(cam);
       //cam_writer.add(cam_left,col);
       //printf("extr:\n");
@@ -1482,7 +1482,7 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
       }
       
       line_mesh -= trans;
-      line_mesh.rotate(-rot);
+      line_mesh.rotate(rot);
       
       cams.merge(line_mesh);
       //viewer.data.add_edges(P1,P2,Eigen::RowVector3d(r,g,b);
