@@ -9,7 +9,7 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
 //needs!
 //proxy.names({"point","x","y","channels","cams","views"});
 //lines.names({"line","x","y","channels","cams"})
-double fit_cams_lines_multi(const clif::Mat_<float>& proxy, cv::Point2i img_size, clif::Mat_<double> &lines, clif::Mat_<double> &extrinsics, clif::Mat_<double> &extrinsics_rel, clif::Mat_<double> &proj);
+double fit_cams_lines_multi(const clif::Mat_<float>& proxy, cv::Point2i img_size, clif::Mat_<double> &lines, clif::Mat_<double> &extrinsics, clif::Mat_<double> &extrinsics_rel, clif::Mat_<double> &proj, bool vis = false);
 
 namespace ucalib {
   

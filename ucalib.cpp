@@ -1579,7 +1579,7 @@ int filter_pinhole(const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i im
  *  - per image camera movement (world rotation and translation)
  *  - individual lines (which do not need to converge in an optical center
  */
-double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj)
+double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj, bool vis)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 500;
@@ -1644,13 +1644,15 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
 #ifdef MM_MESH_WITH_VIEWER 
   Mesh mesh;
   _mesh_updater callback(&mesh, &extrinsics, &extrinsics_rel, &lines, &proj);
-  
-  options.callbacks.push_back(&callback);
-  options.update_state_every_iteration = true;
-  
-  update_cams_mesh(mesh, extrinsics, extrinsics_rel, lines, proj);
-  
-  mesh.show(false);  
+    
+  if (vis) {
+    options.callbacks.push_back(&callback);
+    options.update_state_every_iteration = true;
+    
+    update_cams_mesh(mesh, extrinsics, extrinsics_rel, lines, proj);
+    
+    mesh.show(false);  
+  }
 #endif
   
   /*ceres::Solver::Summary summary;
