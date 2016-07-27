@@ -252,6 +252,8 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   //options.trust_region_strategy_type = ceres::DOGLEG;
   options.linear_solver_type = ceres::DENSE_QR;
   options.logging_type = ceres::SILENT;
+  options.parameter_tolerance = 1e-20;
+  options.gradient_tolerance = 1e-20;
   
   double w_sum = 0.0;
   
@@ -306,6 +308,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem_pers, &summary);
+  //std::cout << summary.FullReport() << "\n";
   ceres::Solve(options, &problem, &summary);
   
   if (summary.termination_type == ceres::TerminationType::NO_CONVERGENCE)
