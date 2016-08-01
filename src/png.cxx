@@ -44,8 +44,10 @@
 
 #ifdef HasPNG
 
-#include "vigra/config.hxx"
-#include "vigra/sized_int.hxx"
+#include <vigra2/config.hxx>
+#include <vigra2/shape.hxx>
+#include <vigra2/sized_int.hxx>
+
 #include "void_vector.hxx"
 #include "auto_file.hxx"
 #include "png.hxx"
@@ -150,12 +152,12 @@ namespace vigra {
         // image header fields
         png_uint_32 width, height, components;
         png_uint_32 extra_components;
-        Diff2D position;
+        Shape<2> position;
         int bit_depth, color_type;
 
         // icc profile, if available
         // the memory is owned by libpng
-        UInt32 iccProfileLength;
+        uint32_t iccProfileLength;
         const unsigned char *iccProfilePtr;
 
         // scanline counter
@@ -313,8 +315,8 @@ namespace vigra {
         y_resolution = png_get_y_pixels_per_meter( png, info ) * 0.0254f;
 
         // read offset
-        position.x = png_get_x_offset_pixels( png, info );
-        position.y = png_get_y_offset_pixels( png, info );
+        position[0] = png_get_x_offset_pixels( png, info );
+        position[1] = png_get_y_offset_pixels( png, info );
 
         // read icc profile
 #if (PNG_LIBPNG_VER > 10008) && defined(PNG_READ_iCCP_SUPPORTED)
@@ -378,8 +380,8 @@ namespace vigra {
     void PngDecoderImpl::nextScanline()
     {
         if (setjmp(png_jmpbuf(png)))
-            vigra_postcondition( false,png_error_message.insert(0, "error in png_read_row(): ").c_str());        
-        for (int i=0; i < n_interlace_passes; i++) 
+            vigra_postcondition( false,png_error_message.insert(0, "error in png_read_row(): ").c_str());
+        for (int i=0; i < n_interlace_passes; i++)
         {
             png_read_row(png, row_data.begin(), NULL);
         }
@@ -438,7 +440,7 @@ namespace vigra {
         return pimpl->y_resolution;
     }
 
-    Diff2D PngDecoder::getPosition() const
+    Shape<2> PngDecoder::getPosition() const
     {
         return pimpl->position;
     }
@@ -514,7 +516,7 @@ namespace vigra {
         bool finalized;
 
         // image layer position
-        Diff2D position;
+        Shape<2> position;
 
         // resolution
         float x_resolution, y_resolution;
@@ -587,10 +589,10 @@ namespace vigra {
         }
 
         // set offset
-        if (position.x != 0 || position.y != 0) {
+        if (position[0] != 0 || position[1] != 0) {
             if (setjmp(png_jmpbuf(png)))
                 vigra_postcondition( false, png_error_message.insert(0, "error in png_set_oFFs(): ").c_str() );
-            png_set_oFFs(png, info, position.x, position.y, PNG_OFFSET_PIXEL);
+            png_set_oFFs(png, info, position[0], position[1], PNG_OFFSET_PIXEL);
         }
 
 #if (PNG_LIBPNG_VER > 10008) && defined(PNG_WRITE_iCCP_SUPPORTED)
@@ -600,7 +602,7 @@ namespace vigra {
 #if (PNG_LIBPNG_VER < 10500)
                          (png_charp)iccProfile.begin(), (png_uint_32)iccProfile.size());
 #else
-                         (png_byte*)iccProfile.begin(), (png_uint_32)iccProfile.size());
+                         (png_byte*)iccProfile.data(), (png_uint_32)iccProfile.size());
 #endif
         }
 #endif
@@ -694,7 +696,7 @@ namespace vigra {
         // nothing is settable => do nothing
     }
 
-    void PngEncoder::setPosition( const Diff2D & pos )
+    void PngEncoder::setPosition( const Shape<2> & pos )
     {
         VIGRA_IMPEX_FINALIZED(pimpl->finalized);
         pimpl->position = pos;
@@ -746,14 +748,14 @@ namespace vigra {
         switch (pimpl->bit_depth) {
         case 8:
             {
-                typedef void_vector< UInt8 > bands_type;
+                typedef void_vector< uint8_t > bands_type;
                 bands_type & bands
                     = static_cast< bands_type & >(pimpl->bands);
                 return bands.data() + index;
             }
         case 16:
             {
-                typedef void_vector<Int16> bands_type;
+                typedef void_vector<int16_t> bands_type;
                 bands_type & bands
                     = static_cast< bands_type & >(pimpl->bands);
                 return bands.data() + index;

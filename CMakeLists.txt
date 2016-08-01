@@ -9,6 +9,12 @@ include(VigraAddExternal)
 
 vigra_add_external(vigra_core REPO https://github.com/vigralibs/vigra_core.git)
 
+option(ENABLE_PNG "Build with PNG support.")
+
+if(ENABLE_PNG)
+  find_package(PNG REQUIRED)
+endif()
+
 add_library(vigra_imageio
     src/bmp.cxx
     src/byteorder.cxx
@@ -40,6 +46,10 @@ target_include_directories(vigra_imageio PUBLIC
 
 target_link_libraries(vigra_imageio vigra_core)
 
+if(ENABLE_PNG)
+  target_compile_definitions(vigra_imageio PUBLIC HasPNG)
+  target_link_libraries(vigra_imageio PNG::PNG)
+endif()
 
 #add_library(threadpool INTERFACE)
 #target_link_libraries(threadpool INTERFACE core INTERFACE Threads::Threads)
