@@ -20,7 +20,7 @@ add_library(vigra_imageio
     #src/hdf5impex.cxx
     #src/hdf5_rf_impex.cxx
     src/iccjpeg.c
-    #src/imageinfo.cxx
+    src/imageinfo.cxx
     src/jpeg.cxx
     src/lz4.c
     src/png.cxx

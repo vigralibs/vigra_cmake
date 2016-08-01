@@ -50,6 +50,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <vigra2/config.hxx>
 #include <vigra2/error.hxx>
@@ -328,28 +329,28 @@ class ImageExportInfo
             @param pos     position of the upper left corner in pixels
                            (must be >= 0 for TIFF)
          **/
-    VIGRA_EXPORT ImageExportInfo & setPosition(const Diff2D & pos);
+    VIGRA_EXPORT ImageExportInfo & setPosition(const Shape<2> & pos);
 
         /** Get the position of the upper left corner on
             a global canvas.
          **/
-    VIGRA_EXPORT Diff2D getPosition() const;
+    VIGRA_EXPORT Shape<2> getPosition() const;
 
         /** Get the size of the canvas, on which the image is positioned at
             getPosition()
          **/
-    VIGRA_EXPORT Size2D getCanvasSize() const;
+    VIGRA_EXPORT Shape<2> getCanvasSize() const;
 
         /** Get the size of the canvas, on which the image is positioned at
             getPosition()
          **/
-    VIGRA_EXPORT ImageExportInfo & setCanvasSize(const Size2D & size);
+    VIGRA_EXPORT ImageExportInfo & setCanvasSize(const Shape<2> & size);
 
         /**
           ICC profiles (handled as raw data so far).
           see getICCProfile()/setICCProfile()
          **/
-    typedef ArrayVector<unsigned char> ICCProfile;
+    typedef std::vector<unsigned char> ICCProfile;
 
         /** Returns a reference to the ICC profile.
          */
@@ -364,9 +365,9 @@ class ImageExportInfo
   private:
     std::string m_filename, m_filetype, m_pixeltype, m_comp, m_mode;
     float m_x_res, m_y_res;
-    Diff2D m_pos;
+    Shape<2> m_pos;
     ICCProfile m_icc_profile;
-    Size2D m_canvas_size;
+    Shape<2> m_canvas_size;
     double fromMin_, fromMax_, toMin_, toMax_;
 };
 
@@ -465,11 +466,11 @@ class ImageImportInfo
 
         /** Get size of the image.
          **/
-    VIGRA_EXPORT Size2D size() const;
+    VIGRA_EXPORT Shape<2> size() const;
 
         /** Get size of the image in a form compatible to MultiArray.
          **/
-    VIGRA_EXPORT MultiArrayShape<2>::type shape() const;
+    VIGRA_EXPORT Shape<2> shape() const;
 
         /** Returns true if the image is gray scale.
          **/
@@ -520,12 +521,12 @@ class ImageImportInfo
 
         /** Returns the layer offset of the current image, if there is one
          **/
-    VIGRA_EXPORT Diff2D getPosition() const;
+    VIGRA_EXPORT Shape<2> getPosition() const;
 
         /** Get the size of the canvas, on which the image is positioned at
             getPosition()
          **/
-    VIGRA_EXPORT Size2D getCanvasSize() const;
+    VIGRA_EXPORT Shape<2> getCanvasSize() const;
 
         /** Returns the image resolution in horizontal direction
          **/
@@ -539,7 +540,7 @@ class ImageImportInfo
           ICC profiles (handled as raw data so far).
           see getICCProfile()/setICCProfile()
          **/
-    typedef ArrayVector<unsigned char> ICCProfile;
+    typedef std::vector<unsigned char> ICCProfile;
 
         /** Returns a reference to the ICC profile.
 
@@ -552,8 +553,8 @@ class ImageImportInfo
     std::string m_filename, m_filetype, m_pixeltype;
     int m_width, m_height, m_num_bands, m_num_extra_bands, m_num_images, m_image_index;
     float m_x_res, m_y_res;
-    Diff2D m_pos;
-    Size2D m_canvas_size;
+    Shape<2> m_pos;
+    Shape<2> m_canvas_size;
     ICCProfile m_icc_profile;
 
     void readHeader_();

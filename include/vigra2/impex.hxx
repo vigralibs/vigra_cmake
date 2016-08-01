@@ -48,10 +48,16 @@
 #ifndef VIGRA_IMPEX_HXX
 #define VIGRA_IMPEX_HXX
 
-#include "stdimage.hxx"
+#include <vigra2/shape.hxx>
+#include <vigra2/sized_int.hxx>
+#include <vigra2/array_nd.hxx>
+
+#include <tuple>
+#include <type_traits>
+#include <utility>
+
 #include "imageinfo.hxx"
 #include "impexbase.hxx"
-#include "multi_shape.hxx"
 
 namespace vigra
 {
@@ -199,26 +205,26 @@ namespace vigra
         void
         importImage(const ImageImportInfo& import_info,
                     ImageIterator image_iterator, ImageAccessor image_accessor,
-                    /* isScalar? */ VigraTrueType)
+                    /* isScalar? */ std::true_type)
         {
             VIGRA_UNIQUE_PTR<Decoder> decoder(vigra::decoder(import_info));
 
             switch (pixel_t_of_string(decoder->getPixelType()))
             {
             case UNSIGNED_INT_8:
-                read_image_band<UInt8>(decoder.get(), image_iterator, image_accessor);
+                read_image_band<uint8_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case UNSIGNED_INT_16:
-                read_image_band<UInt16>(decoder.get(), image_iterator, image_accessor);
+                read_image_band<uint16_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case UNSIGNED_INT_32:
-                read_image_band<UInt32>(decoder.get(), image_iterator, image_accessor);
+                read_image_band<uint32_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case SIGNED_INT_16:
-                read_image_band<Int16>(decoder.get(), image_iterator, image_accessor);
+                read_image_band<int16_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case SIGNED_INT_32:
-                read_image_band<Int32>(decoder.get(), image_iterator, image_accessor);
+                read_image_band<int32_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case IEEE_FLOAT_32:
                 read_image_band<float>(decoder.get(), image_iterator, image_accessor);
@@ -238,7 +244,7 @@ namespace vigra
         void
         importImage(const ImageImportInfo& import_info,
                     ImageIterator image_iterator, ImageAccessor image_accessor,
-                    /* isScalar? */ VigraFalseType)
+                    /* isScalar? */ std::false_type)
         {
             vigra_precondition((static_cast<unsigned int>(import_info.numBands())
                                 == image_accessor.size(image_iterator)) ||
@@ -250,19 +256,19 @@ namespace vigra
             switch (pixel_t_of_string(decoder->getPixelType()))
             {
             case UNSIGNED_INT_8:
-                read_image_bands<UInt8>(decoder.get(), image_iterator, image_accessor);
+                read_image_bands<uint8_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case UNSIGNED_INT_16:
-                read_image_bands<UInt16>(decoder.get(), image_iterator, image_accessor);
+                read_image_bands<uint16_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case UNSIGNED_INT_32:
-                read_image_bands<UInt32>(decoder.get(), image_iterator, image_accessor);
+                read_image_bands<uint32_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case SIGNED_INT_16:
-                read_image_bands<Int16>(decoder.get(), image_iterator, image_accessor);
+                read_image_bands<int16_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case SIGNED_INT_32:
-                read_image_bands<Int32>(decoder.get(), image_iterator, image_accessor);
+                read_image_bands<int32_t>(decoder.get(), image_iterator, image_accessor);
                 break;
             case IEEE_FLOAT_32:
                 read_image_bands<float>(decoder.get(), image_iterator, image_accessor);
@@ -431,7 +437,7 @@ namespace vigra
         void
         exportImage(ImageIterator image_upper_left, ImageIterator image_lower_right, ImageAccessor image_accessor,
                     const ImageExportInfo& export_info,
-                    /* isScalar? */ VigraTrueType)
+                    /* isScalar? */ std::true_type)
         {
             typedef typename ImageAccessor::value_type ImageValueType;
 
@@ -455,23 +461,23 @@ namespace vigra
                 switch (type)
                 {
                 case UNSIGNED_INT_8:
-                    write_image_band<UInt8>(encoder.get(),
+                    write_image_band<uint8_t>(encoder.get(),
                                             image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case UNSIGNED_INT_16:
-                    write_image_band<UInt16>(encoder.get(),
+                    write_image_band<uint16_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case UNSIGNED_INT_32:
-                    write_image_band<UInt32>(encoder.get(),
+                    write_image_band<uint32_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case SIGNED_INT_16:
-                    write_image_band<Int16>(encoder.get(),
+                    write_image_band<int16_t>(encoder.get(),
                                             image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case SIGNED_INT_32:
-                    write_image_band<Int32>(encoder.get(),
+                    write_image_band<int32_t>(encoder.get(),
                                             image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case IEEE_FLOAT_32:
@@ -491,23 +497,23 @@ namespace vigra
                 switch (type)
                 {
                 case UNSIGNED_INT_8:
-                    write_image_band<UInt8>(encoder.get(),
+                    write_image_band<uint8_t>(encoder.get(),
                                             image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case UNSIGNED_INT_16:
-                    write_image_band<UInt16>(encoder.get(),
+                    write_image_band<uint16_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case UNSIGNED_INT_32:
-                    write_image_band<UInt32>(encoder.get(),
+                    write_image_band<uint32_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case SIGNED_INT_16:
-                    write_image_band<Int16>(encoder.get(),
+                    write_image_band<int16_t>(encoder.get(),
                                             image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case SIGNED_INT_32:
-                    write_image_band<Int32>(encoder.get(),
+                    write_image_band<int32_t>(encoder.get(),
                                             image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case IEEE_FLOAT_32:
@@ -531,7 +537,7 @@ namespace vigra
         void
         exportImage(ImageIterator image_upper_left, ImageIterator image_lower_right, ImageAccessor image_accessor,
                     const ImageExportInfo& export_info,
-                    /* isScalar? */ VigraFalseType)
+                    /* isScalar? */ std::false_type)
         {
             typedef typename ImageAccessor::value_type ImageBaseType;
             typedef typename ImageBaseType::value_type ImageValueType;
@@ -559,23 +565,23 @@ namespace vigra
                 switch (type)
                 {
                 case UNSIGNED_INT_8:
-                    write_image_bands<UInt8>(encoder.get(),
+                    write_image_bands<uint8_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case UNSIGNED_INT_16:
-                    write_image_bands<UInt16>(encoder.get(),
+                    write_image_bands<uint16_t>(encoder.get(),
                                               image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case UNSIGNED_INT_32:
-                    write_image_bands<UInt32>(encoder.get(),
+                    write_image_bands<uint32_t>(encoder.get(),
                                               image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case SIGNED_INT_16:
-                    write_image_bands<Int16>(encoder.get(),
+                    write_image_bands<int16_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case SIGNED_INT_32:
-                    write_image_bands<Int32>(encoder.get(),
+                    write_image_bands<int32_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, image_rescaler);
                     break;
                 case IEEE_FLOAT_32:
@@ -595,23 +601,23 @@ namespace vigra
                 switch (type)
                 {
                 case UNSIGNED_INT_8:
-                    write_image_bands<UInt8>(encoder.get(),
+                    write_image_bands<uint8_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case UNSIGNED_INT_16:
-                    write_image_bands<UInt16>(encoder.get(),
+                    write_image_bands<uint16_t>(encoder.get(),
                                               image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case UNSIGNED_INT_32:
-                    write_image_bands<UInt32>(encoder.get(),
+                    write_image_bands<uint32_t>(encoder.get(),
                                               image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case SIGNED_INT_16:
-                    write_image_bands<Int16>(encoder.get(),
+                    write_image_bands<int16_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case SIGNED_INT_32:
-                    write_image_bands<Int32>(encoder.get(),
+                    write_image_bands<int32_t>(encoder.get(),
                                              image_upper_left, image_lower_right, image_accessor, identity());
                     break;
                 case IEEE_FLOAT_32:
@@ -636,7 +642,7 @@ namespace vigra
 
     If the first parameter is \ref vigra::ImageImportInfo, this function assumes that the destination
     image has already the appropriate shape. If the first parameter is a string, the destination
-    must be a \ref vigra::MultiArray reference, which will be reshaped automatically.
+    must be a \ref vigra::ArrayND reference, which will be reshaped automatically.
 
     If the input image has only a single band, but the destination has multiple bands (e.g. is an RGB
     image), all bands will receive the same data. When a multi-band file is read into a single-band
@@ -652,18 +658,18 @@ namespace vigra
         template <class T, class S>
         void
         importImage(ImageImportInfo const & import_info,
-                    MultiArrayView<2, T, S> image);
+                    ArrayViewND<2, T, S> image);
 
         // resize the given array and then read the data
         template <class T, class A>
         void
         importImage(char const * filename,
-                    MultiArray<2, T, A> & image);
+                    ArrayND<2, T, A> & image);
 
         template <class T, class A>
         void
         importImage(std::string const & filename,
-                    MultiArray<2, T, A> & image);
+                    ArrayND<2, T, A> & image);
     }
     \endcode
 
@@ -699,7 +705,7 @@ namespace vigra
     if (info.isGrayscale())
     {
         // create byte image of appropriate size
-        MultiArray<2, unsigned char> image(info.width(), info.height());
+        ArrayND<2, unsigned char> image(info.width(), info.height());
 
         importImage(info, image);
         ...
@@ -707,7 +713,7 @@ namespace vigra
     else
     {
         // create byte RGB image of appropriate size
-        MultiArray<2, RGBValue<unsigned char> > image(info.width(), info.height());
+        ArrayND<2, RGBValue<unsigned char> > image(info.width(), info.height());
 
         importImage(info, image);
         ...
@@ -716,7 +722,7 @@ namespace vigra
     When the type of input image is already known, this can be shortened:
     \code
     // create empty float image
-    MultiArray<2, float> image;
+    ArrayND<2, float> image;
 
     // resize image and read the data
     importImage("myimage.png", image);
@@ -803,16 +809,16 @@ namespace vigra
     template <class ImageIterator, class ImageAccessor>
     inline void
     importImage(ImageImportInfo const & import_info,
-                pair<ImageIterator, ImageAccessor> image)
+                std::pair<ImageIterator, ImageAccessor> image)
     {
         importImage(import_info,
                     image.first, image.second);
     }
 
-    template <class T, class S>
+    template <class T>
     inline void
     importImage(ImageImportInfo const & import_info,
-                MultiArrayView<2, T, S> image)
+                ArrayViewND<2, T> image)
     {
         vigra_precondition(import_info.shape() == image.shape(),
             "importImage(): shape mismatch between input and output.");
@@ -822,7 +828,7 @@ namespace vigra
     template <class T, class A>
     inline void
     importImage(char const * name,
-                MultiArray<2, T, A> & image)
+                ArrayND<2, T, A> & image)
     {
         ImageImportInfo info(name);
         image.reshape(info.shape());
@@ -832,7 +838,7 @@ namespace vigra
     template <class T, class A>
     inline void
     importImage(std::string const & name,
-                MultiArray<2, T, A> & image)
+                ArrayND<2, T, A> & image)
     {
         importImage(name.c_str(), image);
     }
@@ -878,19 +884,19 @@ namespace vigra
     pass 2D array views:
     \code
     namespace vigra {
-        template <class T, class S>
+        template <class T>
         void
-        exportImage(MultiArrayView<2, T, S> const & image,
+        exportImage(ArrayViewND<2, T> const & image,
                     ImageExportInfo const & export_info);
 
-        template <class T, class S>
+        template <class T>
         void
-        exportImage(MultiArrayView<2, T, S> const & image,
+        exportImage(ArrayViewND<2, T> const & image,
                     char const * filename);
 
-        template <class T, class S>
+        template <class T>
         void
-        exportImage(MultiArrayView<2, T, S> const & image,
+        exportImage(ArrayViewND<2, T> const & image,
                     std::string const & filename);
     }
     \endcode
@@ -921,7 +927,7 @@ namespace vigra
     Namespace: vigra
 
     \code
-    MultiArray<2, RGBValue<unsigned char> > image(width, height);
+    ArrayND<2, RGBValue<unsigned char> > image(width, height);
     ...
 
     // write as JPEG image, using compression quality 80
@@ -987,33 +993,33 @@ namespace vigra
 
     template <class ImageIterator, class ImageAccessor>
     inline void
-    exportImage(triple<ImageIterator, ImageIterator, ImageAccessor> image,
+    exportImage(std::tuple<ImageIterator, ImageIterator, ImageAccessor> image,
                 ImageExportInfo const & export_info)
     {
         exportImage(image.first, image.second, image.third,
                     export_info);
     }
 
-    template <class T, class S>
+    template <class T>
     inline void
-    exportImage(MultiArrayView<2, T, S> const & image,
+    exportImage(ArrayViewND<2, T> const & image,
                 ImageExportInfo const & export_info)
     {
         exportImage(srcImageRange(image), export_info);
     }
 
-    template <class T, class S>
+    template <class T>
     inline void
-    exportImage(MultiArrayView<2, T, S> const & image,
+    exportImage(ArrayViewND<2, T> const & image,
                 char const * name)
     {
         ImageExportInfo export_info(name);
         exportImage(srcImageRange(image), export_info);
     }
 
-    template <class T, class S>
+    template <class T>
     inline void
-    exportImage(MultiArrayView<2, T, S> const & image,
+    exportImage(ArrayViewND<2, T> const & image,
                 std::string const & name)
     {
         ImageExportInfo export_info(name.c_str());

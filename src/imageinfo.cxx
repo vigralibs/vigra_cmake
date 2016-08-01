@@ -60,10 +60,11 @@
 #include <ctype.h>
 
 #include <vigra2/imageinfo.hxx>
+#include <vigra2/shape.hxx>
 #include "codecmanager.hxx"
 
 #include <vigra2/multi_impex.hxx>
-#include "vigra/sifImport.hxx"
+#include <vigra2/sifImport.hxx>
 
 #if defined(_MSC_VER)
 #  include "vigra/windows.h"
@@ -449,24 +450,24 @@ ImageExportInfo & ImageExportInfo::setYResolution( float val )
     return *this;
 }
 
-ImageExportInfo & ImageExportInfo::setPosition(const vigra::Diff2D & pos)
+ImageExportInfo & ImageExportInfo::setPosition(const vigra::Shape<2> & pos)
 {
     m_pos = pos;
     return *this;
 }
 
-vigra::Size2D ImageExportInfo::getCanvasSize() const
+vigra::Shape<2> ImageExportInfo::getCanvasSize() const
 {
     return m_canvas_size ;
 }
 
-ImageExportInfo & ImageExportInfo::setCanvasSize(const Size2D & size)
+ImageExportInfo & ImageExportInfo::setCanvasSize(const Shape<2> & size)
 {
     m_canvas_size = size;
     return *this;
 }
 
-vigra::Diff2D ImageExportInfo::getPosition() const
+vigra::Shape<2> ImageExportInfo::getPosition() const
 {
     return m_pos;
 }
@@ -638,14 +639,14 @@ int ImageImportInfo::getImageIndex() const
     return m_image_index;
 }
 
-Size2D ImageImportInfo::size() const
+Shape<2> ImageImportInfo::size() const
 {
-    return Size2D( m_width, m_height );
+    return Shape<2>( m_width, m_height );
 }
 
-MultiArrayShape<2>::type ImageImportInfo::shape() const
+Shape<2> ImageImportInfo::shape() const
 {
-    return MultiArrayShape<2>::type( m_width, m_height );
+    return Shape<2>( m_width, m_height );
 }
 
 bool ImageImportInfo::isGrayscale() const
@@ -663,12 +664,12 @@ bool ImageImportInfo::isByte() const
     return m_pixeltype == "UINT8";
 }
 
-Diff2D ImageImportInfo::getPosition() const
+Shape<2> ImageImportInfo::getPosition() const
 {
     return m_pos;
 }
 
-Size2D ImageImportInfo::getCanvasSize() const
+Shape<2> ImageImportInfo::getCanvasSize() const
 {
     return m_canvas_size;
 }
@@ -861,13 +862,13 @@ VolumeExportInfo & VolumeExportInfo::setZResolution( float val )
     return *this;
 }
 
-VolumeExportInfo & VolumeExportInfo::setPosition(const vigra::Diff2D & pos)
+VolumeExportInfo & VolumeExportInfo::setPosition(const vigra::Shape<2> & pos)
 {
     m_pos = pos;
     return *this;
 }
 
-vigra::Diff2D VolumeExportInfo::getPosition() const
+vigra::Shape<2> VolumeExportInfo::getPosition() const
 {
     return m_pos;
 }
@@ -1209,12 +1210,12 @@ const char * VolumeImportInfo::getFileType() const
 {
     return fileType_.c_str();
 }
-MultiArrayIndex VolumeImportInfo::numBands() const { return numBands_; }
+ArrayIndex VolumeImportInfo::numBands() const { return numBands_; }
 bool VolumeImportInfo::isGrayscale() const { return numBands_ == 1; }
 bool VolumeImportInfo::isColor() const { return numBands_ > 1; }
-MultiArrayIndex VolumeImportInfo::width() const { return shape_[0]; }
-MultiArrayIndex VolumeImportInfo::height() const { return shape_[1]; }
-MultiArrayIndex VolumeImportInfo::depth() const { return shape_[2]; }
+ArrayIndex VolumeImportInfo::width() const { return shape_[0]; }
+ArrayIndex VolumeImportInfo::height() const { return shape_[1]; }
+ArrayIndex VolumeImportInfo::depth() const { return shape_[2]; }
 const std::string & VolumeImportInfo::name() const { return name_; }
 const std::string & VolumeImportInfo::description() const { return description_; }
 

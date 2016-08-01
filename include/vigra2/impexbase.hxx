@@ -36,11 +36,13 @@
 #ifndef VIGRA_IMPEXBASE_HXX
 #define VIGRA_IMPEXBASE_HXX
 
-
+#include <limits>
 #include <string>
-#include "inspectimage.hxx"
-#include "sized_int.hxx"
-#include "utilities.hxx"
+#include <type_traits>
+#include <utility>
+
+#include <vigra2/sized_int.hxx>
+#include <vigra2/utilities.hxx>
 
 
 namespace vigra
@@ -59,6 +61,102 @@ namespace vigra
 
     namespace detail
     {
+
+        template <class VALUETYPE>
+        class FindMinMax
+        {
+           public:
+
+                /** the functor's argument type
+                */
+            typedef VALUETYPE argument_type;
+
+                /** the functor's result type
+                */
+            typedef VALUETYPE result_type;
+
+                /** \deprecated use argument_type
+                */
+            typedef VALUETYPE value_type;
+
+                /** init min and max
+                */
+            FindMinMax()
+            : min( std::numeric_limits<value_type>::max() ),
+              max( std::numeric_limits<value_type>::min() ),
+              count(0)
+            {}
+
+                /** (re-)init functor (clear min, max)
+                */
+            void reset()
+            {
+                count = 0;
+            }
+
+                /** update min and max
+                */
+            void operator()(argument_type const & v)
+            {
+                if(count)
+                {
+                    if(v < min) min = v;
+                    if(max < v) max = v;
+                }
+                else
+                {
+                    min = v;
+                    max = v;
+                }
+                ++count;
+            }
+
+#if 0
+                /** update min and max with components of RGBValue<VALUETYPE>
+                */
+            void operator()(RGBValue<VALUETYPE> const & v)
+            {
+                operator()(v.red());
+                operator()(v.green());
+                operator()(v.blue());
+            }
+
+                /** merge two statistics
+                */
+            void operator()(FindMinMax const & v)
+            {
+                if(v.count)
+                {
+                    if(count)
+                    {
+                        if(v.min < min) min = v.min;
+                        if((this->max) < v.max) max = v.max;
+                    }
+                    else
+                    {
+                        min = v.min;
+                        max = v.max;
+                    }
+                }
+                count += v.count;
+            }
+#endif
+
+                /** the current min
+                */
+            VALUETYPE min;
+
+                /** the current max
+                */
+            VALUETYPE max;
+
+                /** the number of values processed so far
+                */
+            unsigned int count;
+
+        };
+
+
         inline static pixel_t
         pixel_t_of_string(const std::string& pixel_type)
         {
@@ -112,7 +210,7 @@ namespace vigra
         };
 
 
-        typedef pair<double, double> range_t;
+        typedef std::pair<double, double> range_t;
 
 
         class linear_transform
@@ -138,7 +236,7 @@ namespace vigra
         template <class Iterator, class Accessor>
         inline static range_t
         find_value_range(Iterator upper_left, Iterator lower_right, Accessor accessor,
-                         /* is_scalar? */ VigraTrueType)
+                         /* is_scalar? */ std::true_type)
         {
             typedef typename Accessor::value_type value_type;
 
@@ -153,7 +251,7 @@ namespace vigra
         template <class Iterator, class Accessor>
         inline static range_t
         find_value_range(Iterator upper_left, Iterator lower_right, Accessor accessor,
-                         /* is_scalar? */ VigraFalseType)
+                         /* is_scalar? */ std::false_type)
         {
             typedef typename Accessor::ElementAccessor element_accessor;
             typedef typename element_accessor::value_type value_type;
@@ -221,11 +319,11 @@ namespace vigra
         {
             switch (pixel_type)
             {
-            case UNSIGNED_INT_8: return find_destination_value_range<UInt8>(export_info);
-            case UNSIGNED_INT_16: return find_destination_value_range<UInt16>(export_info);
-            case UNSIGNED_INT_32: return find_destination_value_range<UInt32>(export_info);
-            case SIGNED_INT_16: return find_destination_value_range<Int16>(export_info);
-            case SIGNED_INT_32: return find_destination_value_range<Int32>(export_info);
+            case UNSIGNED_INT_8: return find_destination_value_range<uint8_t>(export_info);
+            case UNSIGNED_INT_16: return find_destination_value_range<uint16_t>(export_info);
+            case UNSIGNED_INT_32: return find_destination_value_range<uint32_t>(export_info);
+            case SIGNED_INT_16: return find_destination_value_range<int16_t>(export_info);
+            case SIGNED_INT_32: return find_destination_value_range<int32_t>(export_info);
             case IEEE_FLOAT_32: return find_destination_value_range<float>(export_info);
             case IEEE_FLOAT_64: return find_destination_value_range<double>(export_info);
             default:
