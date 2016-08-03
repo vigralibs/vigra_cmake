@@ -1,2 +1,2 @@
-# threadpool
-A simple thread pool.
+# mod_cmake
+mod_cmake
