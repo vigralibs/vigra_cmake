@@ -10,9 +10,14 @@ include(VigraAddExternal)
 vigra_add_external(vigra_core REPO https://github.com/vigralibs/vigra_core.git)
 
 option(ENABLE_PNG "Build with PNG support.")
+option(ENABLE_OPENEXR "Build with OpenEXR support.")
 
 if(ENABLE_PNG)
   find_package(PNG REQUIRED)
+endif()
+
+if(ENABLE_OPENEXR)
+  find_package(OpenEXR REQUIRED)
 endif()
 
 add_library(vigra_imageio
@@ -44,11 +49,16 @@ target_include_directories(vigra_imageio PUBLIC
     $<INSTALL_INTERFACE:include>
     PRIVATE src)
 
-target_link_libraries(vigra_imageio vigra_core)
+target_link_libraries(vigra_imageio PUBLIC vigra_core)
 
 if(ENABLE_PNG)
-  target_compile_definitions(vigra_imageio PUBLIC HasPNG)
-  target_link_libraries(vigra_imageio PNG::PNG)
+  target_compile_definitions(vigra_imageio PRIVATE HasPNG)
+  target_link_libraries(vigra_imageio PRIVATE PNG::PNG)
+endif()
+
+if(ENABLE_OPENEXR)
+  target_compile_definitions(vigra_imageio PRIVATE HasEXR)
+  target_link_libraries(vigra_imageio PRIVATE OpenEXR::OpenEXR)
 endif()
 
 #add_library(threadpool INTERFACE)

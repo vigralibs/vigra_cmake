@@ -35,15 +35,19 @@
 
 #ifdef HasEXR
 
-#include "vigra/config.hxx"
-#include "vigra/sized_int.hxx"
+#include <vigra2/config.hxx>
+#include <vigra2/shape.hxx>
+#include <vigra2/sized_int.hxx>
+
 #include "void_vector.hxx"
 #include "auto_file.hxx"
 #include "exr.hxx"
 #include "byteorder.hxx"
 #include "error.hxx"
+
 #include <stdexcept>
 #include <iostream>
+#include <vector>
 
 #include <ImfRgbaFile.h>
 #include <ImfCRgbaFile.h>
@@ -122,8 +126,8 @@ namespace vigra {
         RgbaInputFile file;
 
         // data container
-        ArrayVector<Rgba> pixels;
-        ArrayVector<float> bands;
+        std::vector<Rgba> pixels;
+        std::vector<float> bands;
 
         // scanline counter
         int scanline;
@@ -133,8 +137,8 @@ namespace vigra {
 
         int components;
         int extra_components;
-        Diff2D position;
-        Size2D canvasSize;
+        Shape<2> position;
+        Shape<2> canvasSize;
 
         float x_resolution, y_resolution;
 
@@ -171,13 +175,13 @@ namespace vigra {
         width  = dw.max.x - dw.min.x + 1;
         height = dw.max.y - dw.min.y + 1;
 
-        position.x = dw.min.x;
+        position[0] = dw.min.x;
         scanline = dw.min.y;
-        position.y = dw.min.y;
+        position[1] = dw.min.y;
 
         dw = file.header().displayWindow();
-        canvasSize.x = dw.max.x+1;
-        canvasSize.y = dw.max.y+1;
+        canvasSize[0] = dw.max.x+1;
+        canvasSize[1] = dw.max.y+1;
 
         // allocate data buffers
         pixels.resize(width);
@@ -186,11 +190,11 @@ namespace vigra {
 
     void ExrDecoderImpl::nextScanline()
     {
-        file.setFrameBuffer (pixels.data() - position.x - scanline * width, 1, width);
+        file.setFrameBuffer (pixels.data() - position[0] - scanline * width, 1, width);
         file.readPixels (scanline, scanline);
         scanline++;
         // convert scanline to float
-        float * dest = bands.begin();
+        float * dest = bands.data();
         for (int i=0; i < width; i++) {
             *dest++ = pixels[i].r;
             *dest++ = pixels[i].g;
@@ -245,12 +249,12 @@ namespace vigra {
         return pimpl->y_resolution;
     }
 
-    Diff2D ExrDecoder::getPosition() const
+    Shape<2> ExrDecoder::getPosition() const
     {
         return pimpl->position;
     }
 
-    Size2D ExrDecoder::getCanvasSize() const
+    Shape<2> ExrDecoder::getCanvasSize() const
     {
         return pimpl->canvasSize;
     }
@@ -267,7 +271,7 @@ namespace vigra {
 
     const void * ExrDecoder::currentScanlineOfBand( unsigned int band ) const
     {
-        return pimpl->bands.begin() + band;
+        return pimpl->bands.data() + band;
     }
 
     void ExrDecoder::nextScanline()
@@ -286,8 +290,8 @@ namespace vigra {
         RgbaOutputFile *file;
 
         // data container
-        ArrayVector<float> bands;
-        ArrayVector<Rgba> pixels;
+        std::vector<float> bands;
+        std::vector<Rgba> pixels;
 
         // image header fields
         int width, height, components;
@@ -302,8 +306,8 @@ namespace vigra {
         bool finalized;
 
         // image layer position
-        Diff2D position;
-        Size2D canvasSize;
+        Shape<2> position;
+        Shape<2> canvasSize;
 
         // resolution
         float x_resolution, y_resolution;
@@ -340,21 +344,21 @@ namespace vigra {
 
         // set proper position
         Imath::Box2i displayWindow;
-        if (canvasSize.x < width + position.x ||
-            canvasSize.y < height + position.y)
+        if (canvasSize[0] < width + position[0] ||
+            canvasSize[1] < height + position[1])
         {
             displayWindow.min.x = 0;
             displayWindow.min.y = 0;
-            displayWindow.max.x = width+position.x -1;
-            displayWindow.max.y = height+position.y-1;
+            displayWindow.max.x = width+position[0] -1;
+            displayWindow.max.y = height+position[1]-1;
         } else {
             displayWindow.min.x = 0;
             displayWindow.min.y = 0;
-            displayWindow.max.x = canvasSize.x -1;
-            displayWindow.max.y = canvasSize.y -1;
+            displayWindow.max.x = canvasSize[0] -1;
+            displayWindow.max.y = canvasSize[1] -1;
         }
-        Imath::Box2i dataWindow (Imath::V2i (position.x , position.y),
-                                 Imath::V2i (width+position.x -1, height+position.y-1));
+        Imath::Box2i dataWindow (Imath::V2i (position[0] , position[1]),
+                                 Imath::V2i (width+position[0] -1, height+position[1]-1));
         Header header(displayWindow, dataWindow, 1, Imath::V2f(0, 0), 1, INCREASING_Y, exrcomp);
         file = new RgbaOutputFile(filename.c_str(), header, WRITE_RGBA);
         // enter finalized state
@@ -373,7 +377,7 @@ namespace vigra {
                 pixels[i].b = *src++;
                 pixels[i].a = *src++;
             }
-            file->setFrameBuffer (pixels.begin() - position.x -(scanline+position.y)*width, 1, width);
+            file->setFrameBuffer (pixels.data() - position[0] -(scanline+position[1])*width, 1, width);
             file->writePixels (1);
         }
         scanline++;
@@ -445,13 +449,13 @@ namespace vigra {
         pimpl->setCompressionType(comp, quality);
     }
 
-    void ExrEncoder::setPosition( const Diff2D & pos )
+    void ExrEncoder::setPosition( const Shape<2> & pos )
     {
         VIGRA_IMPEX_FINALIZED(pimpl->finalized);
         pimpl->position = pos;
     }
 
-    void ExrEncoder::setCanvasSize( const Size2D & size )
+    void ExrEncoder::setCanvasSize( const Shape<2> & size )
     {
         VIGRA_IMPEX_FINALIZED(pimpl->finalized);
         pimpl->canvasSize = size;
@@ -489,7 +493,7 @@ namespace vigra {
 
     void * ExrEncoder::currentScanlineOfBand( unsigned int band )
     {
-        return pimpl->bands.begin() + band;
+        return pimpl->bands.data() + band;
     }
 
     void ExrEncoder::nextScanline()
