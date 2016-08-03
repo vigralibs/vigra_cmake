@@ -315,6 +315,7 @@ namespace vigra {
         y_resolution = png_get_y_pixels_per_meter( png, info ) * 0.0254f;
 
         // read offset
+        // TODO: if the convention is C order, we need to swap these around.
         position[0] = png_get_x_offset_pixels( png, info );
         position[1] = png_get_y_offset_pixels( png, info );
 
@@ -600,7 +601,7 @@ namespace vigra {
         if (iccProfile.size() > 0) {
             png_set_iCCP(png, info, (png_charp)("icc"), 0,
 #if (PNG_LIBPNG_VER < 10500)
-                         (png_charp)iccProfile.begin(), (png_uint_32)iccProfile.size());
+                         (png_charp)iccProfile.data(), (png_uint_32)iccProfile.size());
 #else
                          (png_byte*)iccProfile.data(), (png_uint_32)iccProfile.size());
 #endif
