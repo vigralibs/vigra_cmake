@@ -43,9 +43,7 @@ IF(OPENEXR_FOUND)
         ${OPENEXR_IEX_LIBRARY} ${OPENEXR_ILMTHREAD_LIBRARY} )
     # Add imported targets.
     if(NOT TARGET OpenEXR::OpenEXR)
-        # NOTE: "UNKNOWN" here refers to the type of library, which could be static
-        # or dynamic (we don't know and don't care).
-        add_library(OpenEXR::OpenEXR UNKNOWN IMPORTED)
+        add_library(OpenEXR::OpenEXR INTERFACE IMPORTED)
         set_target_properties(OpenEXR::OpenEXR PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${OPENEXR_INCLUDE_DIR}")
         set_target_properties(OpenEXR::OpenEXR PROPERTIES
