@@ -1,0 +1,10 @@
+#message(STATUS "Forcing static build of libtiff.")
+#set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+add_subdirectory("${DEPS_EXTERNAL_ROOT}/TIFF" "${DEPS_EXTERNAL_ROOT}/TIFF/build_external_dep")
+
+if(NOT TARGET TIFF::TIFF)
+  add_library(TIFF INTERFACE)
+  set_target_properties(TIFF PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${DEPS_EXTERNAL_ROOT}/TIFF/libtiff")
+  set_target_properties(TIFF PROPERTIES INTERFACE_LINK_LIBRARIES tiff)
+  add_library(TIFF::TIFF ALIAS TIFF)
+endif()
