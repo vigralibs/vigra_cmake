@@ -1,4 +1,4 @@
-add_subdirectory("${DEPS_EXTERNAL_ROOT}/ZLIB" "${DEPS_EXTERNAL_ROOT}/ZLIB/build_external_dep")
+add_subdirectory("${DEPS_EXTERNAL_ROOT}/ZLIB" "${DEPS_EXTERNAL_ROOT}/ZLIB/build_external_dep" EXCLUDE_FROM_ALL)
 
 # We will create a new target ZLIB::ZLIB which links to the target
 # zlib from the zlib repo, in order to mimick what is provided
