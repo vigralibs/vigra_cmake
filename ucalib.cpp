@@ -15,8 +15,8 @@
 #include "ceres/ceres.h"
 #include "ceres/rotation.h"
 
-const double proj_center_size = 0.1;
-const double extr_center_size = 0.3;
+const double proj_center_size = 0.4;
+const double extr_center_size = 0.2;
 const double non_center_rest_weigth = 1e-4;
 const double strong_proj_constr_weight = 10.0;
 const double proj_constr_weight = 0.01;
@@ -1204,7 +1204,7 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
           double w_proj;
           //FIXME should be extra opt. step...
           if (_calib_cams_limit)
-            w_proj = proj_weight*calc_line_pos_weight(cv::Point2i(ray["x"], ray["y"]), proxy_size, extr_center_size, 0.0);
+            w_proj = proj_weight*calc_line_pos_weight(cv::Point2i(ray["x"], ray["y"]), proxy_size, proj_center_size, 0.0);
           else
             w_proj = proj_weight;
           
@@ -1233,7 +1233,7 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
         
         if (proj_weight) {
           double w_proj;
-          w_proj = proj_weight*calc_line_pos_weight(cv::Point2i(ray["x"], ray["y"]), proxy_size, extr_center_size, 0.0);
+          w_proj = proj_weight*calc_line_pos_weight(cv::Point2i(ray["x"], ray["y"]), proxy_size, proj_center_size, min_weight);
           if (w_proj) {
             cost_function = RectProjExtraError::Create(p, ip, w_proj);
             problem.AddResidualBlock(cost_function,
@@ -1718,7 +1718,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   for(auto pos : Idx_It_Dims(m, 0, -1))
     m(pos) = 0;
   for(auto pos : Idx_It_Dims(proj, 0, -1))
-    proj(pos) = 2100;
+    proj(pos) = 1000;
   
   for(auto cam_pos : Idx_It_Dim(extrinsics, "views")) {
     for(int i=0;i<5;i++)
@@ -1809,7 +1809,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   }
   solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, proj_constr_weight, non_center_rest_weigth);
+  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, proj_constr_weight, 0.0);
   /*int filtered = 1;
   while (filtered) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
