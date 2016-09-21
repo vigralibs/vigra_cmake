@@ -71,8 +71,10 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
       yvar = yvar*warped[1];
     }
     
-    residuals[0] = sqrt(abs(T(val_x_) - res_x)*T(w_)+1e-18);
-    residuals[1] = sqrt(abs(T(val_y_) - res_y)*T(w_)+1e-18);
+    //residuals[0] = sqrt(abs(T(val_x_) - res_x)*T(w_)+1e-18);
+    //residuals[1] = sqrt(abs(T(val_y_) - res_y)*T(w_)+1e-18);
+    residuals[0] = (T(val_x_) - res_x)*T(w_);
+    residuals[1] = (T(val_y_) - res_y)*T(w_);
     
     return true;
   }
@@ -105,8 +107,8 @@ template <int x_degree, int y_degree> struct Pers2dError {
     T res_x = warped[0];
     T res_y = warped[1];
     
-    residuals[0] = sqrt(abs(T(val_x_) - res_x)*T(w_)+1e-18);
-    residuals[1] = sqrt(abs(T(val_y_) - res_y)*T(w_)+1e-18);
+    residuals[0] = (T(val_x_) - res_x)*T(w_);
+    residuals[1] = (T(val_y_) - res_y)*T(w_);
     
     return true;
   }
@@ -288,7 +290,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
       w_sum += w;
       wc += w*ip;
         ceres::CostFunction* cost_function =
-            PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
+            PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, sqrt(w));
             
         problem.AddResidualBlock(cost_function,
                                  NULL,
@@ -296,7 +298,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
         
         
         ceres::CostFunction* cost_function_pers =
-            Pers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
+            Pers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, sqrt(w));
             
         problem_pers.AddResidualBlock(cost_function_pers,
                                  NULL,
