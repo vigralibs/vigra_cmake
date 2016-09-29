@@ -63,7 +63,8 @@ function(vigra_add_dep NAME)
   endif()
 
   # Check if the dependency is already satisfied.
-  if(VAD_DEP_${NAME}_SATISFIED)
+  get_property(_VAD_DEP_${NAME}_SATISFIED GLOBAL PROPERTY VAD_DEP_${NAME}_SATISFIED)
+  if(_VAD_DEP_${NAME}_SATISFIED)
     message(STATUS "Dependency '${NAME}' already satisfied, skipping.")
     return()
   endif()
@@ -87,7 +88,7 @@ function(vigra_add_dep NAME)
   # First thing, we try to read the dep properties from the VAD file, if provided.
   find_file(VAD_${NAME}_FILE VAD_${NAME}.cmake ${CMAKE_MODULE_PATH})
   if(VAD_${NAME}_FILE)
-    message(STATUS "VAD file 'VAD_${NAME}.cmake' was found at '${VAD_${NAME}_FILE}'.")
+    message(STATUS "VAD file 'VAD_${NAME}.cmake' was found at '${VAD_${NAME}_FILE}'. The VAD file will now be parsed.")
     include(${VAD_${NAME}_FILE})
     if(GIT_REPO)
       message(STATUS "VAD file for dependency ${NAME} specifies git repo: ${GIT_REPO}")
@@ -129,6 +130,12 @@ function(vigra_add_dep NAME)
 
   if(ARG_VAD_${NAME}_SYSTEM)
     vad_system(${NAME})
+    if(VAD_${NAME}_SYSTEM_NOT_FOUND)
+      message(STATUS "Dependency ${NAME} was not found system-wide, vigra_add_dep() will exit without marking the dependency as satisfied.")
+      unset(VAD_${NAME}_SYSTEM_NOT_FOUND CACHE)
+      vad_reset_hooks()
+      return()
+    endif()
   elseif(ARG_VAD_${NAME}_LIVE)
     # Create the external deps directory if it does not exist already.
     if(NOT EXISTS "${VAD_EXTERNAL_ROOT}")
@@ -140,8 +147,10 @@ function(vigra_add_dep NAME)
 
   # Mark the dep as satisfied.
   message(STATUS "Marking dependency ${NAME} as satisfied.")
-  # NOTE: the flag must escape the function scope.
-  set(VAD_DEP_${NAME}_SATISFIED YES PARENT_SCOPE)
+  # NOTE: the flag be set as a "global" variable, that is available from everywhere, but not in the cache - otherwise
+  # subsequent cmake runs will break. Emulate global variables via global properties:
+  # http://stackoverflow.com/questions/19345930/cmake-lost-in-the-concept-of-global-variables-and-parent-scope-or-add-subdirec
+  set_property(GLOBAL PROPERTY VAD_DEP_${NAME}_SATISFIED YES)
 
   # Reset the hooks at the end as well for cleanup purposes.
   vad_reset_hooks()
