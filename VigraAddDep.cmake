@@ -4,6 +4,9 @@ endif()
 
 include(CMakeParseArguments)
 
+set(VAD_CMAKE_ROOT ${CMAKE_CURRENT_LIST_DIR} CACHE INTERNAL "")
+message(STATUS "VAD cmake root set to: ${VAD_CMAKE_ROOT}")
+
 if(VAD_EXTERNAL_ROOT)
   message(STATUS "The root of external dependencies has been specified by the user: ${VAD_EXTERNAL_ROOT}")
 else()
@@ -11,22 +14,38 @@ else()
   message(STATUS "The root of external dependencies has not been been specified by the user, setting it to the default: ${VAD_EXTERNAL_ROOT}")
 endif()
 
-function(git_clone REPO NAME)
+function(git_clone NAME)
   find_package(Git REQUIRED)
-  message(STATUS "Git cloning repo ${REPO} into '${VAD_EXTERNAL_ROOT}/${NAME}'.")
+
+  # Check if a git repo has been determined for the dependency.
+  if(NOT VAD_${NAME}_GIT_REPO)
+    message(FATAL_ERROR "A git clone was requested for dependency ${NAME}, but no repository variable has been set.")
+  endif()
+
+  # Don't do anything if the repo has been cloned already.
   if(EXISTS "${VAD_EXTERNAL_ROOT}/${NAME}")
     message(STATUS "The path '${VAD_EXTERNAL_ROOT}/${NAME}' already exists, skipping clone.")
     return()
   endif()
-  # Try to check out the dependency.
-  execute_process(COMMAND "${GIT_EXECUTABLE}" "clone" "${REPO}" "${NAME}"
+
+  message(STATUS "Git cloning repo ${VAD_${NAME}_GIT_REPO} into '${VAD_EXTERNAL_ROOT}/${NAME}'.")
+
+  # Build the command line options for the clone command.
+  list(APPEND GIT_COMMAND_ARGS "clone" "${VAD_${NAME}_GIT_REPO}" "${NAME}")
+  if(VAD_${NAME}_GIT_CLONE_OPTS)
+    list(INSERT GIT_COMMAND_ARGS 1 ${VAD_${NAME}_GIT_CLONE_OPTS})
+  endif()
+
+  # Run the clone command.
+  execute_process(COMMAND "${GIT_EXECUTABLE}" ${GIT_COMMAND_ARGS}
     WORKING_DIRECTORY "${VAD_EXTERNAL_ROOT}"
     RESULT_VARIABLE RES
     ERROR_VARIABLE OUT
     OUTPUT_VARIABLE OUT)
   if(RES)
-    message(FATAL_ERROR "The clone command for '${NAME}' failed. The output is:\n====\n${OUT}\n====")
+    message(FATAL_ERROR "The clone command for '${NAME}' failed. The command arguments were: ${GIT_COMMAND_ARGS}\n\nThe output is:\n====\n${OUT}\n====")
   endif()
+
   message(STATUS "'${NAME}' was successfully cloned into '${VAD_EXTERNAL_ROOT}/${NAME}'")
 endfunction()
 
@@ -39,10 +58,7 @@ function(vad_reset_hooks)
   endfunction()
   function(vad_live NAME)
     message(STATUS "Invoking the default implementation of vad_live() for dependency ${NAME}.")
-    if(NOT VAD_${NAME}_GIT_REPO)
-      message(FATAL_ERROR "A git clone was requested for dependency ${NAME}, but no repository variable has been set.")
-    endif()
-    git_clone(${VAD_${NAME}_GIT_REPO} ${NAME})
+    git_clone(${NAME})
     add_subdirectory("${VAD_EXTERNAL_ROOT}/${NAME}" "${VAD_EXTERNAL_ROOT}/${NAME}/build_external_dep")
   endfunction()
 endfunction()
@@ -54,7 +70,8 @@ function(vigra_add_dep NAME)
   # Parse the options.
   set(options SYSTEM LIVE)
   set(oneValueArgs GIT_REPO GIT_BRANCH GIT_COMMIT)
-  cmake_parse_arguments(ARG_VAD_${NAME} "${options}" "${oneValueArgs}" "" ${ARGN})
+  set(multiValueArgs GIT_CLONE_OPTS)
+  cmake_parse_arguments(ARG_VAD_${NAME} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   # Validate options.
   # SYSTEM and LIVE cannot be present at the same time.
@@ -95,6 +112,11 @@ function(vigra_add_dep NAME)
       set(VAD_${NAME}_GIT_REPO_FILE ${GIT_REPO})
       unset(GIT_REPO)
     endif()
+    if(GIT_CLONE_OPTS)
+      message(STATUS "VAD file for dependency ${NAME} specifies git clone options: ${GIT_CLONE_OPTS}")
+      set(VAD_${NAME}_GIT_CLONE_OPTS_FILE ${GIT_CLONE_OPTS})
+      unset(GIT_CLONE_OPTS)
+    endif()
     # TODO: branch/commit.
     if(GIT_BRANCH)
       message(STATUS "Git branch for dependency ${NAME} read from VAD file: ${GIT_BRANCH}")
@@ -128,6 +150,20 @@ function(vigra_add_dep NAME)
     endif()
   endif()
 
+  if(VAD_${NAME}_GIT_CLONE_OPTS)
+    # Git clone options were passed from command line or this is not the first run.
+    message(STATUS "Final git clone options for dependency ${NAME} are from cache: ${VAD_${NAME}_GIT_CLONE_OPTS}")
+  else()
+    if(ARG_VAD_${NAME}_GIT_CLONE_OPTS)
+      # Git clone options passed as function argument, overrides setting from file.
+      message(STATUS "Final git clone options for dependency ${NAME} are from function argument: ${ARG_VAD_${NAME}_GIT_CLONE_OPTS}")
+      set(VAD_${NAME}_GIT_CLONE_OPTS ${ARG_VAD_${NAME}_GIT_CLONE_OPTS} CACHE INTERNAL "")
+    elseif(VAD_${NAME}_GIT_CLONE_OPTS_FILE)
+      # Git clone options coming from the file.
+      message(STATUS "Final git clone options for dependency ${NAME} are from file: ${VAD_${NAME}_GIT_CLONE_OPTS_FILE}")
+      set(VAD_${NAME}_GIT_CLONE_OPTS ${VAD_${NAME}_GIT_CLONE_OPTS_FILE} CACHE INTERNAL "")
+    endif()
+  endif()
   if(ARG_VAD_${NAME}_SYSTEM)
     vad_system(${NAME})
     if(VAD_${NAME}_SYSTEM_NOT_FOUND)

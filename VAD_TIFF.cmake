@@ -1,7 +1,7 @@
 set(GIT_REPO "https://github.com/vadz/libtiff.git")
 
 function(vad_live NAME)
-  git_clone(${VAD_TIFF_GIT_REPO} TIFF)
+  git_clone(TIFF)
   if(VAD_PREFER_STATIC OR VAD_TIFF_PREFER_STATIC)
     message(STATUS "Forcing libtiff static build.")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)

@@ -3,9 +3,9 @@ set(GIT_REPO "https://github.com/madler/zlib.git")
 function(vad_system NAME)
     # Call the CMake-provided FindZLIB module. We need to remove the current path from the CMake module
     # path so we don't end up calling our FindZLIB override.
-    list(REMOVE_ITEM CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+    list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
     find_package(ZLIB)
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+    list(APPEND CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
 
     if(NOT ZLIB_FOUND)
         set(VAD_ZLIB_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
@@ -47,7 +47,7 @@ endfunction()
 
 function(vad_live NAME)
     # Clone and add the subdirectory.
-    git_clone(${VAD_${NAME}_GIT_REPO} ZLIB)
+    git_clone(ZLIB)
     add_subdirectory("${VAD_EXTERNAL_ROOT}/ZLIB" "${VAD_EXTERNAL_ROOT}/ZLIB/build_external_dep")
 
     # We are now going to reconstruct the targets/variables provided by the standard FindZLIB module,
