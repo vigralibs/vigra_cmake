@@ -1,8 +1,8 @@
-function(vad_system NAME)
+include(VigraAddDep)
+
+function(vad_system)
   # Call the standard FindOpenMP module.
-  list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
-  find_package(OpenMP)
-  list(APPEND CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
+  find_package_orig(OpenMP)
 
   if(NOT OPENMP_FOUND)
     set(VAD_OpenMP_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")

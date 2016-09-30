@@ -28,7 +28,7 @@ function(git_clone NAME)
     return()
   endif()
 
-  message(STATUS "Git cloning repo ${VAD_${NAME}_GIT_REPO} into '${VAD_EXTERNAL_ROOT}/${NAME}'.")
+  message(STATUS "Git cloning repo '${VAD_${NAME}_GIT_REPO}' into '${VAD_EXTERNAL_ROOT}/${NAME}'.")
 
   # Build the command line options for the clone command.
   list(APPEND GIT_COMMAND_ARGS "clone" "${VAD_${NAME}_GIT_REPO}" "${NAME}")
@@ -48,6 +48,21 @@ function(git_clone NAME)
 
   message(STATUS "'${NAME}' was successfully cloned into '${VAD_EXTERNAL_ROOT}/${NAME}'")
 endfunction()
+
+# This is a macro to invoke find_package() bypassing any FindXXX.cmake override we provide:
+# we temporarily remove VAD_CMAKE_ROOT frome the cmake module path, call find_package() and then
+# add VAD_CMAKE_ROOT back in its original position.
+# NOTE: this is implemented as a macro as we want to make use of the variables defined after the call to find_package(),
+# but if this was implemented as a function the variables would not be available outside the function.
+macro(find_package_orig NAME)
+  list(FIND CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}" _VAD_CMAKE_ROOT_IDX)
+  if(_VAD_CMAKE_ROOT_IDX EQUAL -1)
+    message(FATAL_ERROR "find_package_orig() has been invoked, but VAD_CMAKE_ROOT is not in the module path.")
+  endif()
+  list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
+  find_package(${NAME})
+  list(INSERT CMAKE_MODULE_PATH ${_VAD_CMAKE_ROOT_IDX} "${VAD_CMAKE_ROOT}")
+endmacro()
 
 # A function to reset the hooks that are optionally defined in VAD files. Calling this function
 # will reset the hooks to their default implementations.
@@ -108,12 +123,16 @@ function(vigra_add_dep NAME)
     message(STATUS "VAD file 'VAD_${NAME}.cmake' was found at '${VAD_${NAME}_FILE}'. The VAD file will now be parsed.")
     include(${VAD_${NAME}_FILE})
     if(GIT_REPO)
-      message(STATUS "VAD file for dependency ${NAME} specifies git repo: ${GIT_REPO}")
+      if(ARG_VAD_${NAME}_LIVE)
+        message(STATUS "VAD file for dependency ${NAME} specifies git repo: ${GIT_REPO}")
+      endif()
       set(VAD_${NAME}_GIT_REPO_FILE ${GIT_REPO})
       unset(GIT_REPO)
     endif()
     if(GIT_CLONE_OPTS)
-      message(STATUS "VAD file for dependency ${NAME} specifies git clone options: ${GIT_CLONE_OPTS}")
+      if(ARG_VAD_${NAME}_LIVE)
+        message(STATUS "VAD file for dependency ${NAME} specifies git clone options: ${GIT_CLONE_OPTS}")
+      endif()
       set(VAD_${NAME}_GIT_CLONE_OPTS_FILE ${GIT_CLONE_OPTS})
       unset(GIT_CLONE_OPTS)
     endif()
@@ -137,33 +156,46 @@ function(vigra_add_dep NAME)
   # TODO: same for branch and commit.
   if(VAD_${NAME}_GIT_REPO)
     # Git repo was passed from command line or this is not the first run.
-    message(STATUS "Final git repo address for dependency ${NAME} is from cache: ${VAD_${NAME}_GIT_REPO}")
+    if(ARG_VAD_${NAME}_LIVE)
+      message(STATUS "Final git repo address for dependency ${NAME} is from cache: ${VAD_${NAME}_GIT_REPO}")
+    endif()
   else()
     if(ARG_VAD_${NAME}_GIT_REPO)
       # Git repo passed as function argument, overrides setting from file.
-      message(STATUS "Final git repo address for dependency ${NAME} is from function argument: ${ARG_VAD_${NAME}_GIT_REPO}")
+      if(ARG_VAD_${NAME}_LIVE)
+        message(STATUS "Final git repo address for dependency ${NAME} is from function argument: ${ARG_VAD_${NAME}_GIT_REPO}")
+      endif()
       set(VAD_${NAME}_GIT_REPO ${ARG_VAD_${NAME}_GIT_REPO} CACHE INTERNAL "")
     elseif(VAD_${NAME}_GIT_REPO_FILE)
       # Git repository coming from the file.
-      message(STATUS "Final git repo address for dependency ${NAME} is from file: ${VAD_${NAME}_GIT_REPO_FILE}")
+      if(ARG_VAD_${NAME}_LIVE)
+        message(STATUS "Final git repo address for dependency ${NAME} is from file: ${VAD_${NAME}_GIT_REPO_FILE}")
+      endif()
       set(VAD_${NAME}_GIT_REPO ${VAD_${NAME}_GIT_REPO_FILE} CACHE INTERNAL "")
     endif()
   endif()
 
   if(VAD_${NAME}_GIT_CLONE_OPTS)
     # Git clone options were passed from command line or this is not the first run.
-    message(STATUS "Final git clone options for dependency ${NAME} are from cache: ${VAD_${NAME}_GIT_CLONE_OPTS}")
+    if(ARG_VAD_${NAME}_LIVE)
+      message(STATUS "Final git clone options for dependency ${NAME} are from cache: ${VAD_${NAME}_GIT_CLONE_OPTS}")
+    endif()
   else()
     if(ARG_VAD_${NAME}_GIT_CLONE_OPTS)
       # Git clone options passed as function argument, overrides setting from file.
-      message(STATUS "Final git clone options for dependency ${NAME} are from function argument: ${ARG_VAD_${NAME}_GIT_CLONE_OPTS}")
+      if(ARG_VAD_${NAME}_LIVE)
+        message(STATUS "Final git clone options for dependency ${NAME} are from function argument: ${ARG_VAD_${NAME}_GIT_CLONE_OPTS}")
+      endif()
       set(VAD_${NAME}_GIT_CLONE_OPTS ${ARG_VAD_${NAME}_GIT_CLONE_OPTS} CACHE INTERNAL "")
     elseif(VAD_${NAME}_GIT_CLONE_OPTS_FILE)
       # Git clone options coming from the file.
-      message(STATUS "Final git clone options for dependency ${NAME} are from file: ${VAD_${NAME}_GIT_CLONE_OPTS_FILE}")
+      if(ARG_VAD_${NAME}_LIVE)
+        message(STATUS "Final git clone options for dependency ${NAME} are from file: ${VAD_${NAME}_GIT_CLONE_OPTS_FILE}")
+      endif()
       set(VAD_${NAME}_GIT_CLONE_OPTS ${VAD_${NAME}_GIT_CLONE_OPTS_FILE} CACHE INTERNAL "")
     endif()
   endif()
+
   if(ARG_VAD_${NAME}_SYSTEM)
     vad_system(${NAME})
     if(VAD_${NAME}_SYSTEM_NOT_FOUND)

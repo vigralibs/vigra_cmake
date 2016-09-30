@@ -1,11 +1,11 @@
+include(VigraAddDep)
+
 set(GIT_REPO "https://github.com/madler/zlib.git")
 
-function(vad_system NAME)
+function(vad_system)
     # Call the CMake-provided FindZLIB module. We need to remove the current path from the CMake module
     # path so we don't end up calling our FindZLIB override.
-    list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
-    find_package(ZLIB)
-    list(APPEND CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
+    find_package_orig(ZLIB)
 
     if(NOT ZLIB_FOUND)
         set(VAD_ZLIB_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
@@ -45,7 +45,7 @@ function(vad_system NAME)
     mark_as_advanced(FORCE ZLIB_LIBRARIES)
 endfunction()
 
-function(vad_live NAME)
+function(vad_live)
     # Clone and add the subdirectory.
     git_clone(ZLIB)
     add_subdirectory("${VAD_EXTERNAL_ROOT}/ZLIB" "${VAD_EXTERNAL_ROOT}/ZLIB/build_external_dep")
