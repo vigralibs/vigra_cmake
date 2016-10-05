@@ -21,27 +21,7 @@ function(vad_system)
     #
     # The technique we will be using is the following: we introduce a new interface target _VAD_ZLIB_STUB, to which we
     # attach ZLIB's properties. Then we introduce an alias for it called ZLIB::ZLIB.
-    add_library(_VAD_ZLIB_STUB INTERFACE)
-    message(STATUS "zlib include dirs: ${ZLIB_INCLUDE_DIRS}")
-    message(STATUS "zlib libraries: ${ZLIB_LIBRARIES}")
-    set_target_properties(_VAD_ZLIB_STUB PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIRS}")
-    target_link_libraries(_VAD_ZLIB_STUB INTERFACE "${ZLIB_LIBRARIES}")
-    add_library(ZLIB::ZLIB ALIAS _VAD_ZLIB_STUB)
-
-    # Now store the variables provided by FindZLIB as global cached variable.
-    set(ZLIB_INCLUDE_DIRS "${ZLIB_INCLUDE_DIRS}" CACHE STRING "")
-    set(ZLIB_LIBRARIES "${ZLIB_LIBRARIES}" CACHE STRING "")
-    set(ZLIB_FOUND TRUE CACHE INTERNAL "")
-    set(ZLIB_VERSION_STRING ${ZLIB_VERSION_STRING} CACHE INTERNAL "")
-    set(ZLIB_VERSION_MAJOR ${ZLIB_VERSION_MAJOR} CACHE INTERNAL "")
-    set(ZLIB_VERSION_MINOR ${ZLIB_VERSION_MINOR} CACHE INTERNAL "")
-    set(ZLIB_VERSION_PATCH ${ZLIB_VERSION_PATCH} CACHE INTERNAL "")
-    set(ZLIB_VERSION_TWEAK ${ZLIB_VERSION_TWEAK} CACHE INTERNAL "")
-    set(ZLIB_MAJOR_VERSION ${ZLIB_MAJOR_VERSION} CACHE INTERNAL "")
-    set(ZLIB_MINOR_VERSION ${ZLIB_MINOR_VERSION} CACHE INTERNAL "")
-    set(ZLIB_PATCH_VERSION ${ZLIB_PATCH_VERSION} CACHE INTERNAL "")
-    mark_as_advanced(FORCE ZLIB_INCLUDE_DIRS)
-    mark_as_advanced(FORCE ZLIB_LIBRARIES)
+    vad_make_imported_target_global(ZLIB::ZLIB)
 endfunction()
 
 function(vad_live)

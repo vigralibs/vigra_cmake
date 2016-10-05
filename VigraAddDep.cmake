@@ -60,10 +60,74 @@ macro(find_package_orig NAME)
     message(FATAL_ERROR "find_package_orig() has been invoked, but VAD_CMAKE_ROOT is not in the module path.")
   endif()
   list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
+  # Get the list of the currently defined variables.
+  get_cmake_property(_OLD_VARIABLES VARIABLES)
+  # Call the original find_package().
   find_package(${NAME})
+  # Detect new variables defined by find_package() and make them cached.
+  get_cmake_property(_NEW_VARIABLES VARIABLES)
+  # Remove duplicates in the new vars list.
+  list(REMOVE_DUPLICATES _NEW_VARIABLES)
+  # Create a lower case version of the package name. We will use this in string matching below.
+  string(TOLOWER "${NAME}" _NAME_LOW)
+  # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
+  foreach(_NEWVAR ${_NEW_VARIABLES})
+      list(FIND _OLD_VARIABLES "${_NEWVAR}" _NEWVARIDX)
+      if(_NEWVARIDX EQUAL -1)
+          # New var was not found among the old ones. We check if it starts with
+          # ${NAME} (case insensitively), in which case we will add it to the cached variables.
+          string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
+          if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}.*")
+            message(STATUS "Storing new variable in cache: '${_NEWVAR}:${${_NEWVAR}}'")
+            if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}_librar*" OR _NEWVAR_LOW MATCHES "^${_NAME_LOW}_include*")
+              # Variables which are likely to represent lib paths or include dirs are set as string variables,
+              # so that they are visible from the GUI.
+              set(${_NEWVAR} ${${_NEWVAR}} CACHE STRING "")
+            else()
+              # Otherwise, mark them as internal vars.
+              set(${_NEWVAR} ${${_NEWVAR}} CACHE INTERNAL "")
+            endif()
+          endif()
+      endif()
+  endforeach()
+  # Restore the module path.
   list(INSERT CMAKE_MODULE_PATH ${_VAD_CMAKE_ROOT_IDX} "${VAD_CMAKE_ROOT}")
+  # Cleanup.
   unset(_VAD_CMAKE_ROOT_IDX)
+  unset(_NEW_VARIABLES)
+  unset(_OLD_VARIABLES)
+  unset(_NEWVAR)
+  unset(_NEWVAR_LOW)
+  unset(_NEWVARIDX)
+  unset(_NAME_LOW)
 endmacro()
+
+include(VAD_target_properties)
+
+function(vad_make_imported_target_global NAME)
+  if(NOT TARGET "${NAME}")
+    message(FATAL_ERROR "'vad_make_imported_target_global()' was called with argument '${NAME}', but a target with that name does not exist.")
+  endif()
+  get_target_property(IMP_PROP "${NAME}" IMPORTED)
+  if(NOT IMP_PROP)
+    message(STATUS "Target '${NAME}' is not IMPORTED, no need to make it global.")
+    return()
+  endif()
+  message(STATUS "Turning IMPORTED target '${NAME}' into a GLOBAL target.")
+  add_library(_VAD_${NAME}_STUB UNKNOWN IMPORTED GLOBAL)
+  foreach(TPROP ${VAD_TARGET_PROPERTIES})
+      get_target_property(PROP ${NAME} "${TPROP}")
+      if(PROP AND NOT "${TPROP}" STREQUAL "NAME")
+          message(STATUS "Copying property '${TPROP}' of IMPORTED target '${NAME}': '${PROP}'")
+          set_property(TARGET _VAD_${NAME}_STUB PROPERTY "${TPROP}" "${PROP}")
+      endif()
+  endforeach()
+  # Create the final alias.
+  string(REPLACE "::" "" NAME_NO_COLONS "${NAME}")
+  add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
+  target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${NAME}_STUB)
+  add_library("${NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
+endfunction()
 
 # A function to reset the hooks that are optionally defined in VAD files. Calling this function
 # will reset the hooks to their default implementations.
