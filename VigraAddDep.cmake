@@ -62,6 +62,7 @@ macro(find_package_orig NAME)
   list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
   find_package(${NAME})
   list(INSERT CMAKE_MODULE_PATH ${_VAD_CMAKE_ROOT_IDX} "${VAD_CMAKE_ROOT}")
+  unset(_VAD_CMAKE_ROOT_IDX)
 endmacro()
 
 # A function to reset the hooks that are optionally defined in VAD files. Calling this function

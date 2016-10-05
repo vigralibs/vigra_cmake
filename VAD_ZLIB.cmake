@@ -3,8 +3,7 @@ include(VigraAddDep)
 set(GIT_REPO "https://github.com/madler/zlib.git")
 
 function(vad_system)
-    # Call the CMake-provided FindZLIB module. We need to remove the current path from the CMake module
-    # path so we don't end up calling our FindZLIB override.
+    # Call the CMake-provided FindZLIB module.
     find_package_orig(ZLIB)
 
     if(NOT ZLIB_FOUND)
