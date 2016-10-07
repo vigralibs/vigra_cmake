@@ -1,5 +1,8 @@
+include(VigraAddDep)
+
 set(GIT_REPO "https://github.com/dmlc/xgboost.git")
-list(APPEND GIT_CLONE_OPTS "--recursive")
+
+set(GIT_CLONE_OPTS "--recursive")
 
 function(vad_live)
   # Clone and add the subdirectory.

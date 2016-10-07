@@ -2,28 +2,6 @@ include(VigraAddDep)
 
 set(GIT_REPO "https://github.com/madler/zlib.git")
 
-function(vad_system)
-    # Call the CMake-provided FindZLIB module.
-    find_package_orig(ZLIB)
-
-    if(NOT ZLIB_FOUND)
-        set(VAD_ZLIB_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
-        return()
-    endif()
-
-    # There are some problems here, which we we will solve with some hackery:
-    # - CMake's FindZLIB provides a ZLIB::ZLIB *imported* target. Imported target have special scoping
-    #   rules different from normal targets: they are visible only to subdirs/subprojects which are children
-    #   of the project from which the imported target was defined. We will need to reconstruct and override the
-    #   ZLIB::ZLIB target (this is apparently allowed via an alias);
-    # - the variables defined by CMake's FindZLIB module have a similar problem, in the sense that they are visible
-    #   only to subdirs/subprojects. We will need to make them global cache variables.
-    #
-    # The technique we will be using is the following: we introduce a new interface target _VAD_ZLIB_STUB, to which we
-    # attach ZLIB's properties. Then we introduce an alias for it called ZLIB::ZLIB.
-    vad_make_imported_target_global(ZLIB::ZLIB)
-endfunction()
-
 function(vad_live)
     # Clone and add the subdirectory.
     git_clone(ZLIB)
