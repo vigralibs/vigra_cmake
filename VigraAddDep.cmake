@@ -49,92 +49,67 @@ function(git_clone NAME)
   message(STATUS "'${NAME}' was successfully cloned into '${VAD_EXTERNAL_ROOT}/${NAME}'")
 endfunction()
 
-# This is a macro to invoke find_package() bypassing any FindXXX.cmake override we provide:
+# This is a function to invoke find_package() bypassing any FindXXX.cmake override we provide:
 # we temporarily remove VAD_CMAKE_ROOT frome the cmake module path, call find_package() and then
 # add VAD_CMAKE_ROOT back in its original position. We also detect new variables defined
 # by the call to find_package(), and make them global cached variables if their name starts with NAME.
 function(find_package_orig NAME)
-  list(FIND CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}" _VAD_CMAKE_ROOT_IDX)
-  if(_VAD_CMAKE_ROOT_IDX EQUAL -1)
-    message(FATAL_ERROR "find_package_orig() has been invoked, but VAD_CMAKE_ROOT is not in the module path.")
-  endif()
-  list(REMOVE_ITEM CMAKE_MODULE_PATH "${VAD_CMAKE_ROOT}")
-  # Get the list of the currently defined variables.
-  get_cmake_property(_OLD_VARIABLES VARIABLES)
+  set_property(GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} YES)
   # Call the original find_package().
   find_package(${NAME})
-  # Restore the module path.
-  list(INSERT CMAKE_MODULE_PATH ${_VAD_CMAKE_ROOT_IDX} "${VAD_CMAKE_ROOT}")
-  # Detect new variables defined by find_package() and make them cached.
-  get_cmake_property(_NEW_VARIABLES VARIABLES)
-  # Remove duplicates in the new vars list.
-  list(REMOVE_DUPLICATES _NEW_VARIABLES)
-  # Create a lower case version of the package name. We will use this in string matching below.
-  string(TOLOWER "${NAME}" _NAME_LOW)
-  # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
-  foreach(_NEWVAR ${_NEW_VARIABLES})
-      list(FIND _OLD_VARIABLES "${_NEWVAR}" _NEWVARIDX)
-      if(_NEWVARIDX EQUAL -1)
-          # New var was not found among the old ones. We check if it starts with
-          # ${NAME} (case insensitively), in which case we will add it to the cached variables.
-          string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
-          if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}.*")
-            # Make sure we don't store multiline strings in the cache, as that is not supported.
-            string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
-            message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
-            if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}_librar*" OR _NEWVAR_LOW MATCHES "^${_NAME_LOW}_include*")
-              # Variables which are likely to represent lib paths or include dirs are set as string variables,
-              # so that they are visible from the GUI.
-              set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
-            else()
-              # Otherwise, mark them as internal vars.
-              set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
-            endif()
-          endif()
-      endif()
-  endforeach()
+  set_property(GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} NO)
 endfunction()
 
-include(VAD_target_properties)
-
-# An utility function to turn an imported target into a GLOBAL imported target.
-# Imported targets have special visibility rules: they are not visible outside the subdir/subproject
-# from which they were defined.
-function(vad_make_imported_target_global NAME)
-  # Check the target actually exists.
-  if(NOT TARGET "${NAME}")
-    message(FATAL_ERROR "'vad_make_imported_target_global()' was called with argument '${NAME}', but a target with that name does not exist.")
+function(add_library)
+  list(FIND ARGN "IMPORTED" _IDX_IMP)
+  list(FIND ARGN "GLOBAL" _IDX_GLOB)
+  list(GET ARGN 0 _NAME)
+  if(NOT _IDX_IMP EQUAL -1 AND _IDX_GLOB EQUAL -1)
+    message(STATUS "Turning non-global imported target '${_NAME}' into a global target.")
+    _add_library(${ARGN} GLOBAL)
+  else()
+    _add_library(${ARGN})
   endif()
+endfunction()
 
-  # Check if the target is imported. If it not, we just exit.
-  get_target_property(IMP_PROP "${NAME}" IMPORTED)
-  if(NOT IMP_PROP)
-    message(STATUS "Target '${NAME}' is not IMPORTED, no need to make it global.")
-    return()
+function(find_package NAME)
+  get_property(_USE_ORIGINAL GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME})
+  if(_USE_ORIGINAL)
+    # Get the list of the currently defined variables.
+    get_cmake_property(_OLD_VARIABLES VARIABLES)
+    # Call the original find_package().
+    _find_package(${NAME} ${ARGN})
+    # Detect new variables defined by find_package() and make them cached.
+    get_cmake_property(_NEW_VARIABLES VARIABLES)
+    # Remove duplicates in the new vars list.
+    list(REMOVE_DUPLICATES _NEW_VARIABLES)
+    # Create a lower case version of the package name. We will use this in string matching below.
+    string(TOLOWER "${NAME}" _NAME_LOW)
+    # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
+    foreach(_NEWVAR ${_NEW_VARIABLES})
+        list(FIND _OLD_VARIABLES "${_NEWVAR}" _NEWVARIDX)
+        if(_NEWVARIDX EQUAL -1)
+            # New var was not found among the old ones. We check if it starts with
+            # ${NAME} (case insensitively), in which case we will add it to the cached variables.
+            string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
+            if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}.*")
+              # Make sure we don't store multiline strings in the cache, as that is not supported.
+              string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
+              message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
+              if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}_librar*" OR _NEWVAR_LOW MATCHES "^${_NAME_LOW}_include*")
+                # Variables which are likely to represent lib paths or include dirs are set as string variables,
+                # so that they are visible from the GUI.
+                set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
+              else()
+                # Otherwise, mark them as internal vars.
+                set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
+              endif()
+            endif()
+        endif()
+    endforeach()
+  else()
+    vigra_add_dep(${NAME} ${ARGN})
   endif()
-
-  # The strategy here is as follows:
-  # - we create a new imported target with global visibility, and we copy the properties of the original target;
-  # - we create an INTERFACE target depending on the new target above;
-  # - we create an alias for the INTERFACE target with the name of the original target.
-  # It is necessary to go through the double indirection because of certain CMake rules regarding the allowed target
-  # names.
-  message(STATUS "Turning IMPORTED target '${NAME}' into a GLOBAL target.")
-  add_library(_VAD_${NAME}_STUB UNKNOWN IMPORTED GLOBAL)
-  foreach(TPROP ${VAD_TARGET_PROPERTIES})
-      get_target_property(PROP ${NAME} "${TPROP}")
-      # Don't try to copy read-only properties, such as the NAME. Probably there are others to filter out.
-      if(PROP AND NOT "${TPROP}" STREQUAL "NAME")
-          message(STATUS "Copying property '${TPROP}' of IMPORTED target '${NAME}': '${PROP}'")
-          set_property(TARGET _VAD_${NAME}_STUB PROPERTY "${TPROP}" "${PROP}")
-      endif()
-  endforeach()
-  # Create the final aliases. We need to remove any double colon from the original name as they are not allowed
-  # in the names of targets in this context.
-  string(REPLACE "::" "" NAME_NO_COLONS "${NAME}")
-  add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
-  target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${NAME}_STUB)
-  add_library("${NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
 endfunction()
 
 # A function to reset the hooks that are optionally defined in VAD files. Calling this function
@@ -148,10 +123,6 @@ function(vad_reset_hooks)
     if(NOT ${NAME}_FOUND)
       set(VAD_${NAME}_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
       return()
-    endif()
-    # Check if a an exported target has been provided by find_package(). In such case, make it GLOBAL.
-    if(TARGET ${NAME}::${NAME})
-      vad_make_imported_target_global(${NAME}::${NAME})
     endif()
   endfunction()
   function(vad_live NAME)
