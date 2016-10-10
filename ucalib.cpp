@@ -638,13 +638,13 @@ struct LineZ3DirPinholeErrorIS {
     //residuals[1] = (p[1] - p[2]*line[1])*T(w_);
     if (ix_ == 0.0)
       //FIXME use neighbours?
-      residuals[0] = (p[0]/p[2])*T(w_)*T(1000);
+      residuals[0] = (p[0]/p[2])*T(w_);
     else
       residuals[0] = /*sqrt(abs*/(p[0]/p[2]*T(ix_)/line[0] - T(ix_))/*+1e-18)*/*T(w_);
     
     if (iy_ == 0.0)
       //FIXME use neighbours?
-      residuals[1] = (p[1]/p[2])*T(w_)*T(1000);
+      residuals[1] = (p[1]/p[2])*T(w_);
     else
       residuals[1] = /*sqrt(abs*/(p[1]/p[2]*T(iy_)/line[1] - T(iy_))/*+1e-18)*/*T(w_);
     
@@ -729,8 +729,8 @@ struct LineZ3CenterDirError {
   bool operator()(const T* const line,
                   T* residuals) const {
     //compare with projected pinhole camera ray
-    residuals[0] = line[0];
-    residuals[1] = line[1];
+    residuals[0] = line[0]*T(1000);
+    residuals[1] = line[1]*T(1000);
     
     return true;
   }
