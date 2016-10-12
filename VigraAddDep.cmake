@@ -49,10 +49,7 @@ function(git_clone NAME)
   message(STATUS "'${NAME}' was successfully cloned into '${VAD_EXTERNAL_ROOT}/${NAME}'")
 endfunction()
 
-# This is a function to invoke find_package() bypassing any FindXXX.cmake override we provide:
-# we temporarily remove VAD_CMAKE_ROOT frome the cmake module path, call find_package() and then
-# add VAD_CMAKE_ROOT back in its original position. We also detect new variables defined
-# by the call to find_package(), and make them global cached variables if their name starts with NAME.
+# This is a small wrapper to invoke the original CMake-provided version of find_package(), which we override below.
 function(find_package_orig NAME)
   set_property(GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} YES)
   # Call the original find_package().
@@ -60,21 +57,65 @@ function(find_package_orig NAME)
   set_property(GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} NO)
 endfunction()
 
-function(add_library)
+# Override the builtin add_library() function so that the new library is appended to a global list.
+function(add_library NAME)
   list(FIND ARGN "IMPORTED" _IDX_IMP)
   list(FIND ARGN "GLOBAL" _IDX_GLOB)
-  list(GET ARGN 0 _NAME)
   if(NOT _IDX_IMP EQUAL -1 AND _IDX_GLOB EQUAL -1)
-    message(STATUS "Turning non-global imported target '${_NAME}' into a global target.")
-    _add_library(${ARGN} GLOBAL)
-  else()
-    _add_library(${ARGN})
+    get_property(_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
+    list(APPEND _LIB_LIST "${NAME}")
+    set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST ${_LIB_LIST})
   endif()
+  _add_library(${NAME} ${ARGN})
 endfunction()
 
+# An utility function to turn an imported target into a GLOBAL imported target.
+# Imported targets have special visibility rules: they are not visible outside the subdir/subproject
+# from which they were defined.
+function(vad_make_imported_target_global NAME)
+  # Check the target actually exists.
+  if(NOT TARGET "${NAME}")
+    message(FATAL_ERROR "'vad_make_imported_target_global()' was called with argument '${NAME}', but a target with that name does not exist.")
+  endif()
+
+  # Check if the target is imported. If it not, we just exit.
+  get_target_property(IMP_PROP "${NAME}" IMPORTED)
+  if(NOT IMP_PROP)
+    message(STATUS "Target '${NAME}' is not IMPORTED, no need to make it global.")
+    return()
+  endif()
+
+  # The strategy here is as follows:
+  # - we create a new imported target with global visibility, and we copy the properties of the original target;
+  # - we create an INTERFACE target depending on the new target above;
+  # - we create an alias for the INTERFACE target with the name of the original target.
+  # It is necessary to go through the double indirection because of certain CMake rules regarding the allowed target
+  # names.
+  message(STATUS "Turning IMPORTED target '${NAME}' into a GLOBAL target.")
+  add_library(_VAD_${NAME}_STUB UNKNOWN IMPORTED GLOBAL)
+  foreach(TPROP ${VAD_TARGET_PROPERTIES})
+      get_target_property(PROP ${NAME} "${TPROP}")
+      # Don't try to copy read-only properties, such as the NAME. Probably there are others to filter out.
+      if(PROP AND NOT "${TPROP}" STREQUAL "NAME")
+          message(STATUS "Copying property '${TPROP}' of IMPORTED target '${NAME}': '${PROP}'")
+          set_property(TARGET _VAD_${NAME}_STUB PROPERTY "${TPROP}" "${PROP}")
+      endif()
+  endforeach()
+  # Create the final aliases. We need to remove any double colon from the original name as they are not allowed
+  # in the names of targets in this context.
+  string(REPLACE "::" "" NAME_NO_COLONS "${NAME}")
+  add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
+  target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${NAME}_STUB)
+  add_library("${NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
+endfunction()
+
+# Override the builtin find_package() function. This alternate implementation has 2 modes of operation:
+# - if the global property _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} is set, it will invoke the builtin find_package()
+#   and export the new variables defined by it as cached variables;
+# - otherwise, vigra_add_dep() is called.
 function(find_package NAME)
-  get_property(_USE_ORIGINAL GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME})
-  if(_USE_ORIGINAL)
+  get_property(_USE_ORIGINAL_{NAME} GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME})
+  if(_USE_ORIGINAL_{NAME})
     # Get the list of the currently defined variables.
     get_cmake_property(_OLD_VARIABLES VARIABLES)
     # Call the original find_package().
@@ -107,6 +148,11 @@ function(find_package NAME)
             endif()
         endif()
     endforeach()
+    get_property(_IMP_NOGLOB_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
+    foreach(_NEWLIB ${_IMP_NOGLOB_LIB_LIST})
+      vad_make_imported_target_global("${_NEWLIB}")
+    endforeach()
+    set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST "")
   else()
     vigra_add_dep(${NAME} ${ARGN})
   endif()
