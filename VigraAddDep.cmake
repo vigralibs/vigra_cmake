@@ -3,9 +3,7 @@ if(VigraAddDepIncluded)
 endif()
 
 include(CMakeParseArguments)
-
-set(VAD_CMAKE_ROOT ${CMAKE_CURRENT_LIST_DIR} CACHE INTERNAL "")
-message(STATUS "VAD cmake root set to: ${VAD_CMAKE_ROOT}")
+include(VAD_target_properties)
 
 if(VAD_EXTERNAL_ROOT)
   message(STATUS "The root of external dependencies has been specified by the user: ${VAD_EXTERNAL_ROOT}")
@@ -49,19 +47,13 @@ function(git_clone NAME)
   message(STATUS "'${NAME}' was successfully cloned into '${VAD_EXTERNAL_ROOT}/${NAME}'")
 endfunction()
 
-# This is a small wrapper to invoke the original CMake-provided version of find_package(), which we override below.
-function(find_package_orig NAME)
-  set_property(GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} YES)
-  # Call the original find_package().
-  find_package(${NAME})
-  set_property(GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} NO)
-endfunction()
-
-# Override the builtin add_library() function so that the new library is appended to a global list.
+# Override the builtin add_library() function so that the new library is appended to a global list
+# if it is a non-global imported target. It will then be turned into a global imported target by find_package().
 function(add_library NAME)
   list(FIND ARGN "IMPORTED" _IDX_IMP)
   list(FIND ARGN "GLOBAL" _IDX_GLOB)
   if(NOT _IDX_IMP EQUAL -1 AND _IDX_GLOB EQUAL -1)
+    message(STATUS "Adding target '${NAME}' to the list of non-global imported targets.")
     get_property(_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
     list(APPEND _LIB_LIST "${NAME}")
     set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST ${_LIB_LIST})
@@ -81,8 +73,7 @@ function(vad_make_imported_target_global NAME)
   # Check if the target is imported. If it not, we just exit.
   get_target_property(IMP_PROP "${NAME}" IMPORTED)
   if(NOT IMP_PROP)
-    message(STATUS "Target '${NAME}' is not IMPORTED, no need to make it global.")
-    return()
+    message(FATAL_ERROR "Target '${NAME}' is not IMPORTED, no need to make it global.")
   endif()
 
   # The strategy here is as follows:
@@ -92,8 +83,20 @@ function(vad_make_imported_target_global NAME)
   # It is necessary to go through the double indirection because of certain CMake rules regarding the allowed target
   # names.
   message(STATUS "Turning IMPORTED target '${NAME}' into a GLOBAL target.")
-  add_library(_VAD_${NAME}_STUB UNKNOWN IMPORTED GLOBAL)
+  get_target_property(TARGET_TYPE ${NAME} TYPE)
+  message(STATUS "Target type is: ${TARGET_TYPE}")
+  if(TARGET_TYPE MATCHES "INTERFACE_LIBRARY")
+    add_library(_VAD_${NAME}_STUB INTERFACE IMPORTED GLOBAL)
+  else()
+    add_library(_VAD_${NAME}_STUB UNKNOWN IMPORTED GLOBAL)
+  endif()
   foreach(TPROP ${VAD_TARGET_PROPERTIES})
+      if(TARGET_TYPE MATCHES "INTERFACE_LIBRARY")
+        list(FIND VAD_INTERFACE_LIBRARY_BLACKLISTED_PROPERTIES "${TPROP}" _IDX)
+        if(NOT _IDX EQUAL -1)
+          continue()
+        endif()
+      endif()
       get_target_property(PROP ${NAME} "${TPROP}")
       # Don't try to copy read-only properties, such as the NAME. Probably there are others to filter out.
       if(PROP AND NOT "${TPROP}" STREQUAL "NAME")
@@ -109,53 +112,54 @@ function(vad_make_imported_target_global NAME)
   add_library("${NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
 endfunction()
 
-# Override the builtin find_package() function. This alternate implementation has 2 modes of operation:
-# - if the global property _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME} is set, it will invoke the builtin find_package()
-#   and export the new variables defined by it as cached variables;
-# - otherwise, vigra_add_dep() is called.
+# Override the builtin find_package() function to just call vigra_add_dep(). The purpose of this override is to make
+# sure that any dep added via find_package() goes through the VAD machinery.
 function(find_package NAME)
-  get_property(_USE_ORIGINAL_{NAME} GLOBAL PROPERTY _VAD_USE_ORIGINAL_FIND_PACKAGE_{NAME})
-  if(_USE_ORIGINAL_{NAME})
-    # Get the list of the currently defined variables.
-    get_cmake_property(_OLD_VARIABLES VARIABLES)
-    # Call the original find_package().
-    _find_package(${NAME} ${ARGN})
-    # Detect new variables defined by find_package() and make them cached.
-    get_cmake_property(_NEW_VARIABLES VARIABLES)
-    # Remove duplicates in the new vars list.
-    list(REMOVE_DUPLICATES _NEW_VARIABLES)
-    # Create a lower case version of the package name. We will use this in string matching below.
-    string(TOLOWER "${NAME}" _NAME_LOW)
-    # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
-    foreach(_NEWVAR ${_NEW_VARIABLES})
-        list(FIND _OLD_VARIABLES "${_NEWVAR}" _NEWVARIDX)
-        if(_NEWVARIDX EQUAL -1)
-            # New var was not found among the old ones. We check if it starts with
-            # ${NAME} (case insensitively), in which case we will add it to the cached variables.
-            string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
-            if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}.*")
-              # Make sure we don't store multiline strings in the cache, as that is not supported.
-              string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
-              message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
-              if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}_librar*" OR _NEWVAR_LOW MATCHES "^${_NAME_LOW}_include*")
-                # Variables which are likely to represent lib paths or include dirs are set as string variables,
-                # so that they are visible from the GUI.
-                set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
-              else()
-                # Otherwise, mark them as internal vars.
-                set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
-              endif()
+  vigra_add_dep(${NAME} SYSTEM ${ARGN})
+endfunction()
+
+# In addition to calling the builtin find_package(), this function
+# will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
+# the imported targets defined by the builtin find_package() global.
+function(find_package_plus NAME)
+  message(STATUS "Invoking the patched 'find_package()' function for dependency ${NAME}.")
+  # Get the list of the currently defined variables.
+  get_cmake_property(_OLD_VARIABLES_${NAME} VARIABLES)
+  # Call the original find_package().
+  _find_package(${NAME} ${ARGN})
+  # Detect new variables defined by find_package() and make them cached.
+  get_cmake_property(_NEW_VARIABLES_${NAME} VARIABLES)
+  # Remove duplicates in the new vars list.
+  list(REMOVE_DUPLICATES _NEW_VARIABLES_${NAME})
+  # Create a lower case version of the package name. We will use this in string matching below.
+  string(TOLOWER "${NAME}" _NAME_LOW)
+  # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
+  foreach(_NEWVAR ${_NEW_VARIABLES_${NAME}})
+      list(FIND _OLD_VARIABLES_${NAME} "${_NEWVAR}" _NEWVARIDX)
+      if(_NEWVARIDX EQUAL -1)
+          # New var was not found among the old ones. We check if it starts with
+          # ${NAME} (case insensitively), in which case we will add it to the cached variables.
+          string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
+          if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}.*")
+            # Make sure we don't store multiline strings in the cache, as that is not supported.
+            string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
+            message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
+            if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}_librar*" OR _NEWVAR_LOW MATCHES "^${_NAME_LOW}_include*")
+              # Variables which are likely to represent lib paths or include dirs are set as string variables,
+              # so that they are visible from the GUI.
+              set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
+            else()
+              # Otherwise, mark them as internal vars.
+              set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
             endif()
-        endif()
-    endforeach()
-    get_property(_IMP_NOGLOB_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
-    foreach(_NEWLIB ${_IMP_NOGLOB_LIB_LIST})
-      vad_make_imported_target_global("${_NEWLIB}")
-    endforeach()
-    set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST "")
-  else()
-    vigra_add_dep(${NAME} ${ARGN})
-  endif()
+          endif()
+      endif()
+  endforeach()
+  get_property(_IMP_NOGLOB_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
+  foreach(_NEWLIB ${_IMP_NOGLOB_LIB_LIST})
+    vad_make_imported_target_global("${_NEWLIB}")
+  endforeach()
+  set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST "")
 endfunction()
 
 # A function to reset the hooks that are optionally defined in VAD files. Calling this function
@@ -163,8 +167,7 @@ endfunction()
 function(vad_reset_hooks)
   function(vad_system NAME)
     message(STATUS "Invoking the default implementation of vad_system() for dependency ${NAME}.")
-    # Invoke the original find_package().
-    find_package_orig(${NAME})
+    find_package_plus(${NAME} ${ARGN})
     # Check the FOUND flag.
     if(NOT ${NAME}_FOUND)
       set(VAD_${NAME}_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
@@ -297,7 +300,7 @@ function(vigra_add_dep NAME)
   endif()
 
   if(ARG_VAD_${NAME}_SYSTEM)
-    vad_system(${NAME})
+    vad_system(${NAME} ${ARG_VAD_${NAME}_UNPARSED_ARGUMENTS})
     if(VAD_${NAME}_SYSTEM_NOT_FOUND)
       message(STATUS "Dependency ${NAME} was not found system-wide, vigra_add_dep() will exit without marking the dependency as satisfied.")
       unset(VAD_${NAME}_SYSTEM_NOT_FOUND CACHE)
