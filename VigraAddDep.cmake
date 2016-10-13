@@ -162,17 +162,21 @@ function(find_package_plus NAME)
   set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST "")
 endfunction()
 
+# The default vad_system() function.
+function(vad_system_default NAME)
+  message(STATUS "Invoking the default implementation of vad_system() for dependency ${NAME}.")
+  find_package_plus(${NAME} ${ARGN})
+  # Check the FOUND flag.
+  if(NOT ${NAME}_FOUND)
+    set(VAD_${NAME}_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
+  endif()
+endfunction()
+
 # A function to reset the hooks that are optionally defined in VAD files. Calling this function
 # will reset the hooks to their default implementations.
 function(vad_reset_hooks)
-  function(vad_system NAME)
-    message(STATUS "Invoking the default implementation of vad_system() for dependency ${NAME}.")
-    find_package_plus(${NAME} ${ARGN})
-    # Check the FOUND flag.
-    if(NOT ${NAME}_FOUND)
-      set(VAD_${NAME}_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
-      return()
-    endif()
+  function(vad_system)
+    vad_system_default(${ARGN})
   endfunction()
   function(vad_live NAME)
     message(STATUS "Invoking the default implementation of vad_live() for dependency ${NAME}.")
