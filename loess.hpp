@@ -247,15 +247,15 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
 template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2f center, double *coeffs, double sigma, int *count = NULL)
 {
   ceres::Solver::Options options;
-  options.max_num_iterations = 2000;
+  options.max_num_iterations = 1000;
   //options.num_threads = 8;
-  //options.num_linear_solver_threads = 8;
+  options.num_linear_solver_threads = 8;
   //options.minimizer_progress_to_stdout = true;
   //options.trust_region_strategy_type = ceres::DOGLEG;
   options.linear_solver_type = ceres::DENSE_QR;
   options.logging_type = ceres::SILENT;
-  options.parameter_tolerance = 1e-20;
-  options.gradient_tolerance = 1e-20;
+  //options.parameter_tolerance = 1e-20;
+  //options.gradient_tolerance = 1e-20;
   
   double w_sum = 0.0;
   
@@ -269,9 +269,9 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   coeffs[2] = wps[0].x;
   coeffs[5] = wps[0].y;
     
-  coeffs[9+0] = 1.0;
+  coeffs[9+0] = 0.0;
   for(int i=1;i<x_degree*y_degree;i++)
-    coeffs[9+i] = 0.0;
+    coeffs[9+i] = 1.0;
   coeffs[9+x_degree*y_degree] = 1.0;
   for(int i=1;i<x_degree*y_degree;i++)
     coeffs[9+i+x_degree*y_degree] = 0.0;
@@ -305,17 +305,26 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
                                 coeffs);
       }
       
-  if (norm(wc*(1.0/w_sum)) >= 10.0)
+  /*if (norm(wc*(1.0/w_sum)) >= 10.0) {
+    printf("center is off by %f\n", norm(wc*(1.0/w_sum)));
     return std::numeric_limits<double>::quiet_NaN();  
+  }*/
   
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem_pers, &summary);
+  //printf("%5d / ", summary.num_successful_steps);
   //std::cout << summary.FullReport() << "\n";
   ceres::Solve(options, &problem, &summary);
   
-  if (summary.termination_type == ceres::TerminationType::NO_CONVERGENCE)
+  if (summary.termination_type == ceres::TerminationType::NO_CONVERGENCE){
+    //printf("no convergence\n");
+    //std::cout << summary.FullReport() << "\n";
     return std::numeric_limits<double>::quiet_NaN();  
+  }
  
+  //std::cout << summary.FullReport() << "\n";
+  
+  //printf("%d iters ", summary.num_successful_steps);
   //std::cout << summary.FullReport() << "\n";
 
   return sqrt((summary.final_cost)/w_sum);

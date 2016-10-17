@@ -1649,7 +1649,7 @@ double solve_pinhole(const ceres::Solver::Options &options, const Mat_<float>& p
   
   printf("solving pinhole problem (proj w = %f...\n", proj_weight);
   ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << "\n";
+  //std::cout << summary.FullReport() << "\n";
   printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
