@@ -7,9 +7,6 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/shape/shape_transformer.hpp>
 
-
-#include <omp.h>
-
 #include <cstdarg>
 
 #include "ceres/ceres.h"
@@ -145,8 +142,6 @@ void get_undist_map_for_depth_inverse(clif::Mat_<double> lines, cv::Mat &map, do
   spline2dbuildbicubic(cx, cy, fy, fdim.y, fdim.x, img_world_spline[1]);
   
   int approx_step = 8;
-  
-  omp_set_num_threads(8);
   
   int progress = 0;
 #pragma omp parallel for num_threads(8)
