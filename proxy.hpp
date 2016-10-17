@@ -66,7 +66,7 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
         proxy(0,x,y) = res.x;
         proxy(1,x,y) = res.y;
 #pragma omp critical
-        printf("rms: %3dx%3d %fx%f %f mm (%d points)\n", x, y, res.x, res.y, rms, count);
+        printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
       }
     }
 }

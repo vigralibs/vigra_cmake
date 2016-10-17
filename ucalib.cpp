@@ -1418,6 +1418,22 @@ double solve_pinhole(const ceres::Solver::Options &options, const Mat_<float>& p
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
+double solve_non_central(const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel)
+{
+  ceres::Solver::Summary summary;
+  ceres::Problem problem;
+  double dir[3] = {0,0,0};
+  
+  _zline_problem_add_generic_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
+  
+  printf("solving unconstrained problem\n");
+  ceres::Solve(options, &problem, &summary);
+  std::cout << summary.FullReport() << "\n";
+  printf("\nunconstrained rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
+  
+  return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
+}
+
 
 double refine_pinhole_ispace(const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
 {
@@ -1572,7 +1588,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   }
   solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, proj_constr_weight, 0.0);
+  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, 0.0);
   /*int filtered = 1;
   while (filtered) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
@@ -1584,7 +1600,8 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   //FIXME disable until we port extrinsics constraint (center ray == 0) back to it
   options.max_num_iterations = 5000;
   //refine_pinhole_ispace(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
-  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 1e-4, 0.0);
+  
+  solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
   
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     if (lines({0, line_pos.r(1,-1)}) == 0 &&

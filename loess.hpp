@@ -242,9 +242,38 @@ template<int x_degree, int y_degree> double fit_2d_poly_2d(std::vector<cv::Point
   return sqrt((summary_x.final_cost+summary_y.final_cost)/w_sum);
 }
 
+template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2d p, double *coeffs, double scale = 1.0)
+{
+  double warped[3];
+  p *= scale;
+  warped[0] = p.x*coeffs[0] + p.y*coeffs[1] + coeffs[2];
+  warped[1] = p.x*coeffs[3] + p.y*coeffs[4] + coeffs[5];
+  warped[2] = p.x*coeffs[6] + p.y*coeffs[7] + coeffs[8];
+  warped[0] /= warped[2];
+  warped[1] /= warped[2];
+
+  double xvars[x_degree];
+  double yvar = 1.0;
+  xvars[0] = 1.0;
+  for(int i=1;i<x_degree;i++)
+    xvars[i] = xvars[i-1]*p.x;
+  
+  double res_x = warped[0];
+  double res_y = warped[1];
+  for(int j=0;j<y_degree;j++) {
+    for(int i=0;i<x_degree;i++) {
+      res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
+      res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
+    }
+    yvar = yvar*p.y;
+  }
+      
+  return cv::Point2d(res_x, res_y);
+}
+
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2f center, double *coeffs, double sigma, int *count = NULL)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
@@ -259,7 +288,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   
   double w_sum = 0.0;
   
-  cv::Point2f wc(0, 0);
+  cv::Point2d wc(0, 0);
   
   for(int i=0;i<9;i++)
     if (i % 4 == 0)
@@ -281,7 +310,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   if (count)
     (*count) = 0;
   for(int i=0;i<ips.size();i++) {
-      cv::Point2f ip = (ips[i]-center);
+      cv::Point2d ip = (cv::Point2d(ips[i])-center);
       double w = exp(-(ip.x*ip.x+ip.y*ip.y)/(2.0*sigma*sigma));
       if (w <= 0.05)
         continue;
@@ -327,7 +356,9 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   //printf("%d iters ", summary.num_successful_steps);
   //std::cout << summary.FullReport() << "\n";
 
-  return sqrt((summary.final_cost)/w_sum);
+  //approximate scale
+  double scale = norm(eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(1e-6,1e-6), coeffs))/(sqrt(2)*1e-6);
+  return sqrt((summary.final_cost)/w_sum)/scale;
 }
 
 template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, double *coeffs)
@@ -346,65 +377,6 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, 
       res_y += coeffs[j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
     }
     yvar = yvar*p.y;
-  }
-      
-  return cv::Point2f(res_x, res_y);
-}
-
-template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2f p, double *coeffs, double scale = 1.0)
-{
-  double warped[3];
-  p *= scale;
-  warped[0] = p.x*coeffs[0] + p.y*coeffs[1] + coeffs[2];
-  warped[1] = p.x*coeffs[3] + p.y*coeffs[4] + coeffs[5];
-  warped[2] = p.x*coeffs[6] + p.y*coeffs[7] + coeffs[8];
-  warped[0] /= warped[2];
-  warped[1] /= warped[2];
-
-  double xvars[x_degree];
-  double yvar = 1.0;
-  xvars[0] = 1.0;
-  for(int i=1;i<x_degree;i++)
-    xvars[i] = xvars[i-1]*p.x;
-  
-  double res_x = warped[0];
-  double res_y = warped[1];
-  for(int j=0;j<y_degree;j++) {
-    for(int i=0;i<x_degree;i++) {
-      res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
-      res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
-    }
-    yvar = yvar*p.y;
-  }
-      
-  return cv::Point2f(res_x, res_y);
-}
-
-template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d_tria(cv::Point2f p, double *coeffs)
-{
-  double warped[3];
-  warped[0] = p.x*coeffs[0] + p.y*coeffs[1] + coeffs[2];
-  warped[1] = p.x*coeffs[3] + p.y*coeffs[4] + coeffs[5];
-  warped[2] = p.x*coeffs[6] + p.y*coeffs[7] + coeffs[8];
-  warped[0] /= warped[2];
-  warped[1] /= warped[2];
-
-  double xvars[x_degree];
-  double yvar = 1.0;
-  xvars[0] = 1.0;
-  for(int i=1;i<x_degree;i++)
-    xvars[i] = xvars[i-1]*warped[0];
-  
-  double res_x = warped[0];
-  double res_y = warped[1];
-  for(int j=0;j<y_degree;j++) {
-    for(int i=0;i<x_degree;i++) {
-        if ((x_degree+y_degree) > std::max(x_degree,y_degree))
-          continue;
-      res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
-      res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
-    }
-    yvar = yvar*warped[1];
   }
       
   return cv::Point2f(res_x, res_y);
