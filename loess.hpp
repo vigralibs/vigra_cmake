@@ -59,7 +59,7 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
     T yvar = T(1.0);
     xvars[0] = T(1.0);
     for(int i=1;i<x_degree;i++)
-      xvars[i] = xvars[i-1]*warped[0];
+      xvars[i] = xvars[i-1]*T(x_);
     
     T res_x = warped[0];
     T res_y = warped[1];
@@ -68,7 +68,7 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
         res_x += p[9+j*x_degree+i]*(yvar*xvars[i]);
         res_y += p[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
       }
-      yvar = yvar*warped[1];
+      yvar = yvar*T(y_);
     }
     
     //residuals[0] = sqrt(abs(T(val_x_) - res_x)*T(w_)+1e-18);
@@ -356,7 +356,7 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2
   double yvar = 1.0;
   xvars[0] = 1.0;
   for(int i=1;i<x_degree;i++)
-    xvars[i] = xvars[i-1]*warped[0];
+    xvars[i] = xvars[i-1]*p.x;
   
   double res_x = warped[0];
   double res_y = warped[1];
@@ -365,7 +365,7 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_pers_poly_2d(cv::Point2
       res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
       res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
     }
-    yvar = yvar*warped[1];
+    yvar = yvar*p.y;
   }
       
   return cv::Point2f(res_x, res_y);
