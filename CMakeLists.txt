@@ -51,35 +51,9 @@ endif()
 dep_lists_append(Ceres)
 
 dep_lists_append(mm-mesh OPTIONAL)
-# FIXME should also work as PRIVATE (but doesn't with MSVC in Debug, something is exported from alglib in ucalib?!)
-dep_lists_append(Alglib OPTIONAL)
 
 # search pkgs
 dep_lists_pkg_search()
-
-if (NOT ${PNU}_WITH_ALGLIB)
-  if (WIN32)
-    option(UCALIB_INTERNAL_ALGLIB "internal alglib build" TRUE)
-  else()
-    option(UCALIB_INTERNAL_ALGLIB "internal alglib build" FALSE)
-  endif()
-else()
-  option(UCALIB_INTERNAL_ALGLIB "internal alglib build" FALSE)
-endif()
-
-if (UCALIB_INTERNAL_ALGLIB)
-  add_subdirectory(external/alglib)
-  # FIXME remove alglib from optional?!
-  dep_lists_append(Alglib)
-  dep_lists_pkg_recheck(Alglib)
-elseif(NOT ${PNU}_WITH_ALGLIB)
-	if (NOT DEP_LISTS_SOFT_FAIL)
-	  message(FATAL_ERROR "UCALIB: No ALGLIB available (maybe use UCALIB_INTERNAL_ALGLIB?)")
-	else()
-	  message("UCALIB: No ALGLIB available (maybe use UCALIB_INTERNAL_ALGLIB?)")
-	  return()
-	endif()
-endif()
 
 set(${PNU}_HEADERS proxy.hpp ucalib.hpp loess.hpp)
 dep_lists_prepare_env()
@@ -97,10 +71,3 @@ list(APPEND ${PNU}_EXPORT_LIBS ucalib)
 #####################################################
 dep_lists_export_local()
 
-#####################################################
-## INFO
-#####################################################
-message("build info for ${PROJECT_NAME}:")
-message("  optional components:")
-msg_yesno("    internal alglib" UCALIB_INTERNAL_ALGLIB COLOR NONE)
-message("")
