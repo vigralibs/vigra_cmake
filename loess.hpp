@@ -41,6 +41,12 @@ template <int x_degree, int y_degree> struct Poly2dError {
   double x_,y_,val_, w_;
 };
 
+template<typename T> constexpr
+T const& const_max(T const& a, T const& b) {
+  return a > b ? a : b;
+}
+
+
 template <int x_degree, int y_degree> struct PolyPers2dError {
   PolyPers2dError(double x, double y, double valx, double valy, double w)
       : x_(x), y_(y), val_x_(valx), val_y_(valy), w_(w) {}
@@ -63,16 +69,16 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
     
     T res_x = warped[0];
     T res_y = warped[1];
+    int p_idx = 9;
     for(int j=0;j<y_degree;j++) {
-      for(int i=0;i<x_degree;i++) {
-        res_x += p[9+j*x_degree+i]*(yvar*xvars[i]);
-        res_y += p[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
-      }
+      for(int i=0;i<x_degree;i++)
+        if (i > 1 || j > 1) {
+          res_x += p[p_idx++]*(yvar*xvars[i]);
+          res_y += p[p_idx++]*(yvar*xvars[i]);
+        }
       yvar = yvar*T(y_);
     }
     
-    //residuals[0] = sqrt(abs(T(val_x_) - res_x)*T(w_)+1e-18);
-    //residuals[1] = sqrt(abs(T(val_y_) - res_y)*T(w_)+1e-18);
     residuals[0] = (T(val_x_) - res_x)*T(w_);
     residuals[1] = (T(val_y_) - res_y)*T(w_);
     
@@ -82,7 +88,7 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double x, double y, double valx, double valy, double w) {
-    return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+2*x_degree*y_degree>(
+    return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+const_max(2*x_degree*y_degree-4,0)>(
                 new PolyPers2dError(x, y, valx, valy, w)));
   }
 
@@ -260,11 +266,13 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
   
   double res_x = warped[0];
   double res_y = warped[1];
+  int p_idx = 9;
   for(int j=0;j<y_degree;j++) {
-    for(int i=0;i<x_degree;i++) {
-      res_x += coeffs[9+j*x_degree+i]*(yvar*xvars[i]);
-      res_y += coeffs[9+j*x_degree+i+x_degree*y_degree]*(yvar*xvars[i]);
-    }
+    for(int i=0;i<x_degree;i++)
+      if (i > 1 || j > 1) {
+        res_x += coeffs[p_idx++]*(yvar*xvars[i]);
+        res_y += coeffs[p_idx++]*(yvar*xvars[i]);
+      }
     yvar = yvar*p.y;
   }
       
@@ -300,8 +308,8 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
     
   coeffs[9+0] = 0.0;
   for(int i=1;i<x_degree*y_degree;i++)
-    coeffs[9+i] = 1.0;
-  coeffs[9+x_degree*y_degree] = 1.0;
+    coeffs[9+i] = 0.0;
+  coeffs[9+x_degree*y_degree] = 0.0;
   for(int i=1;i<x_degree*y_degree;i++)
     coeffs[9+i+x_degree*y_degree] = 0.0;
   
