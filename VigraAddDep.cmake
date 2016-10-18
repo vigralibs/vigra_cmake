@@ -98,8 +98,7 @@ function(vad_make_imported_target_global NAME)
         endif()
       endif()
       get_target_property(PROP ${NAME} "${TPROP}")
-      # Don't try to copy read-only properties, such as the NAME. Probably there are others to filter out.
-      if(PROP AND NOT "${TPROP}" STREQUAL "NAME")
+      if(PROP)
           message(STATUS "Copying property '${TPROP}' of IMPORTED target '${NAME}': '${PROP}'")
           set_property(TARGET _VAD_${NAME}_STUB PROPERTY "${TPROP}" "${PROP}")
       endif()
@@ -144,7 +143,7 @@ function(find_package_plus NAME)
             # Make sure we don't store multiline strings in the cache, as that is not supported.
             string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
             message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
-            if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}_librar*" OR _NEWVAR_LOW MATCHES "^${_NAME_LOW}_include*")
+            if(_NEWVAR_LOW MATCHES "librar" OR _NEWVAR_LOW MATCHES "include")
               # Variables which are likely to represent lib paths or include dirs are set as string variables,
               # so that they are visible from the GUI.
               set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
