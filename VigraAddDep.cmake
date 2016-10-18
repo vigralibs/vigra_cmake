@@ -59,6 +59,11 @@ function(add_library NAME)
     set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST ${_LIB_LIST})
   endif()
   _add_library(${NAME} ${ARGN})
+  list(FIND ARGN "INTERFACE" _IDX_IFACE)
+  list(FIND ARGN "ALIAS" _IDX_ALIAS)
+  if(_IDX_IFACE EQUAL -1 AND _IDX_ALIAS EQUAL -1 AND NOT "${NAME}" MATCHES "^_VAD.*_STUB")
+    file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/${NAME}.cmake_location" CONTENT "$<TARGET_FILE:${NAME}>")
+  endif()
 endfunction()
 
 # An utility function to turn an imported target into a GLOBAL imported target.
