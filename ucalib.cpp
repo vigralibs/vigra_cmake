@@ -16,7 +16,7 @@ const double extr_center_size = 0.2;
 const double non_center_rest_weigth = 1e-4;
 const double strong_proj_constr_weight = 10.0;
 const double proj_constr_weight = 0.01;
-const double center_constr_weight = 0.1;
+const double center_constr_weight = 1000.0;
 const double enforce_cams_line = 10.0;
 
 int _calib_cams_limit = 1000;
@@ -38,6 +38,8 @@ cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f)
   return cv::Vec4d(l_o.x*f.x,l_o.y*f.y, l_d.x*f.x, l_d.y*f.y);
 }
 
+
+
 void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f)
 {
   cv::Point2i fdim(lines[1],lines[2]);
@@ -56,18 +58,12 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
       
       cv::Point2d ip = cv::Point2d((x+0.5-fdim.x*0.5)/fdim.x*idim.x, (y+0.5-fdim.y*0.5)/fdim.y*idim.y);
       
-      //line expressed in pixel using projection f
-      cv::Vec4d line_unproj = line_correct_proj(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)), f);
+      //project 3d lines in image space
+      //line direction becomes constant term in images space
+      offset.at<cv::Point2d>(y,x) = cv::Point2d(lines(2,x,y)*f.x, lines(3,x,y)*f.y) - ip;
       
-      offset.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[2], line_unproj[3]) - ip;
-      
-      grad.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[0], line_unproj[1]);      
-      
-      /*if (norm(ip - cv::Point2d(-436.364, -252.632)) < 0.1) {
-        cout << "ref ip: " << ip << "line: " << cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) << "\n";
-      }*/
-      if (norm(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) - cv::Vec4d(-208.803, -0.598069, 0.183888, -0.0177925)) <= 0.1)
-        offset.at<cv::Point2d>(y,x) = cv::Point2d(std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN());
+      //line origin becomes z-dependend term in image space
+      grad.at<cv::Point2d>(y,x) = cv::Point2d(lines(0,x,y)*f.x, lines(1,x,y)*f.y);
     }
     
   std::vector<cv::Point2f> cv_wpoints, cv_ipoints;
@@ -85,8 +81,6 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
       matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
       cv_wpoints.push_back(cv::Point2f(wx, wy));
       cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
-      
-      //cout << cv_wpoints.back() << (x+0.5)*idim.x/fdim.x << cv_ipoints.back() << "\n";
     }
 
 
@@ -159,13 +153,13 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
 namespace ucalib {
 
 void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, clif::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
-{
+{  
+  cv::Point2d f(cameraMatrix.at<double>(0,0), cameraMatrix.at<double>(1,1));
+  
   cv::Point2i fdim(lines[1],lines[2]);
   
   cv::Mat_<cv::Point2d> offset(fdim.y, fdim.x);
   cv::Mat_<cv::Point2d> grad(fdim.y, fdim.x);
-  
-  cv::Point2d f(cameraMatrix.at<double>(0,0), cameraMatrix.at<double>(1,1));
   
   for(int y=0;y<fdim.y;y++)
     for(int x=0;x<fdim.x;x++) {
@@ -178,20 +172,16 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
       
       cv::Point2d ip = cv::Point2d((x+0.5-fdim.x*0.5)/fdim.x*idim.x, (y+0.5-fdim.y*0.5)/fdim.y*idim.y);
       
-      //line expressed in pixel using projection f
-      cv::Vec4d line_unproj = line_correct_proj(cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)), f);
+      //project 3d lines in image space
+      //line direction becomes constant term in images space
+      offset.at<cv::Point2d>(y,x) = cv::Point2d(lines(2,x,y)*f.x, lines(3,x,y)*f.y) - ip;
       
-      offset.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[2], line_unproj[3]) - ip;
-      
-      grad.at<cv::Point2d>(y,x) = cv::Point2d(line_unproj[0], line_unproj[1]);      
-      
-      /*if (norm(ip - cv::Point2d(-436.364, -252.632)) < 0.1) {
-        cout << "ref ip: " << ip << "line: " << cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) << "\n";
-      }*/
-      //cout << cv::Vec4d(lines(0,x,y),lines(1,x,y),lines(2,x,y),lines(3,x,y)) << "\n";
+      //line origin becomes z-dependend term in image space
+      grad.at<cv::Point2d>(y,x) = cv::Point2d(lines(0,x,y)*f.x, lines(1,x,y)*f.y);
     }
     
   std::vector<cv::Point2f> cv_wpoints, cv_ipoints, perfect_points;
+  std::vector<cv::Point2f> ip_off, ip_grad;
   std::vector<cv::DMatch> matches;
   for(int y=0;y<fdim.y;y++)
     for(int x=0;x<fdim.x;x++) {
@@ -199,12 +189,11 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
       if (std::isnan(offset.at<cv::Point2d>(y,x).x))
         continue;
       
+      double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + 1/z*grad.at<cv::Point2d>(y,x).x;
+      double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + 1/z*grad.at<cv::Point2d>(y,x).y;
       
-      double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
-      double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
-      
-      matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
-      cv_wpoints.push_back(cv::Point2f(wx, wy));
+      matches.push_back(cv::DMatch(cv_ipoints.size(),cv_ipoints.size(), 0));
+      cv_wpoints.push_back(cv::Point2f(wx,wy));
       cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
     }
 
@@ -212,11 +201,10 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
   cv::Ptr<cv::ThinPlateSplineShapeTransformer> transform = cv::createThinPlateSplineShapeTransformer(0);
   transform->estimateTransformation(cv_wpoints, cv_ipoints, matches);
   
-  cv::projectPoints(wpoints, rvec, tvec, cameraMatrix, cv::noArray(), perfect_points);
-  transform->applyTransformation(perfect_points, ipoints);
   
-  std::vector<cv::Point2f> ip_check;
-  transform->applyTransformation(cv_wpoints, ip_check);
+  cv::projectPoints(wpoints, rvec, tvec, cameraMatrix, cv::noArray(), perfect_points);
+  
+  transform->applyTransformation(perfect_points, ipoints);
 }
 
 }
@@ -513,10 +501,10 @@ struct LineZ3GenericCenterDirError {
   bool operator()(const T* const line,
                   T* residuals) const {
     //compare with projected pinhole camera ray
-    residuals[0] = line[0];
-    residuals[1] = line[1];
-    residuals[2] = line[2];
-    residuals[3] = line[3];
+    residuals[0] = line[2]*T(1000);
+    residuals[1] = line[3]*T(1000);
+    //residuals[2] = line[2];
+    //residuals[3] = line[3];
     
     return true;
   }
@@ -524,7 +512,7 @@ struct LineZ3GenericCenterDirError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create() {
-    return (new ceres::AutoDiffCostFunction<LineZ3GenericCenterDirError, 4, 4>(
+    return (new ceres::AutoDiffCostFunction<LineZ3GenericCenterDirError, 2, 4>(
                 new LineZ3GenericCenterDirError()));
   }
 };
@@ -1275,6 +1263,13 @@ static void _zline_problem_add_generic_lines(ceres::Problem &problem, const Mat_
       problem.AddResidualBlock(cost_function, NULL, 
                               &lines({0,ray.r("x","cams")}));
     }
+    
+    if (ray["y"] == center.y && (ray["x"] == center.x-1 || ray["x"] == center.x+1) && !reproj_error_calc_only) {
+      ceres::CostFunction* cost_function = LineZ3GenericCenterError::Create();
+      problem.AddResidualBlock(cost_function, NULL,
+                              &lines({0,ray.r("x","cams")}));
+    }
+    
   
     if (ref_cam) {
       //std::cout << "process: " << ray << p << "\n";
@@ -1425,6 +1420,7 @@ double solve_non_central(const ceres::Solver::Options &options, const Mat_<float
   double dir[3] = {0,0,0};
   
   _zline_problem_add_generic_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
+  //_zline_problem_add_center_errors(problem, lines);
   
   printf("solving unconstrained problem\n");
   ceres::Solve(options, &problem, &summary);
