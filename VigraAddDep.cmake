@@ -127,6 +127,14 @@ endfunction()
 # the imported targets defined by the builtin find_package() global.
 function(find_package_plus NAME)
   message(STATUS "Invoking the patched 'find_package()' function for dependency ${NAME}.")
+  # As a first step we want to erase from the cache all the variables that were exported by a previous call
+  # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${NAME}, which we will
+  # also remove.
+  foreach(_NEWVAR ${VAD_NEW_VARS_${NAME}})
+    unset(${_NEWVAR} CACHE)
+  endforeach()
+  unset(VAD_NEW_VARS_${NAME} CACHE)
+
   # Get the list of the currently defined variables.
   get_cmake_property(_OLD_VARIABLES_${NAME} VARIABLES)
   # Call the original find_package().
@@ -138,6 +146,8 @@ function(find_package_plus NAME)
   # Create a lower case version of the package name. We will use this in string matching below.
   string(TOLOWER "${NAME}" _NAME_LOW)
   # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
+  # We will append the detected variables to the _DIFFVARS list.
+  set(_DIFFVARS)
   foreach(_NEWVAR ${_NEW_VARIABLES_${NAME}})
       list(FIND _OLD_VARIABLES_${NAME} "${_NEWVAR}" _NEWVARIDX)
       if(_NEWVARIDX EQUAL -1)
@@ -156,9 +166,14 @@ function(find_package_plus NAME)
               # Otherwise, mark them as internal vars.
               set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
             endif()
+            list(APPEND _DIFFVARS ${_NEWVAR})
           endif()
       endif()
   endforeach()
+  # Store a list of the variables that were exported as cache variables.
+  set(VAD_NEW_VARS_${NAME} ${_DIFFVARS} CACHE INTERNAL "")
+
+  # Now take care of turning any IMPORTED non-GLOBAL target defined by a find_package() call into a GLOBAL one.
   get_property(_IMP_NOGLOB_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
   foreach(_NEWLIB ${_IMP_NOGLOB_LIB_LIST})
     vad_make_imported_target_global("${_NEWLIB}")
