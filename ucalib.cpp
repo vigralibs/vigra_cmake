@@ -1759,7 +1759,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   options.max_num_iterations = 5000;
   //refine_pinhole_ispace(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   
-  solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
+  /*solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
   
   Mat_<double> target_mesh({3, 6, 6});
   cv::Point2i target_size(20,20);
@@ -1772,7 +1772,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
     for(int i=0;i<target_mesh[2];i++)
       printf("[%2.2f %2.2f %2.2f]", target_mesh(0,i,j), target_mesh(1,i,j), target_mesh(2,i,j));
     printf("\n");
-  }
+  }*/
   
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     if (lines({0, line_pos.r(1,-1)}) == 0 &&
