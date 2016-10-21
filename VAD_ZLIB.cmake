@@ -21,6 +21,7 @@ function(vad_live)
     # ZLIB::ZLIB is the imported target provided by FindZLIB.
     add_library(ZLIB::ZLIB ALIAS _VAD_ZLIB_STUB)
     set(ZLIB_FOUND TRUE CACHE INTERNAL "")
+
     # Set the global variables, ZLIB_INCLUDE_DIRS and ZLIB_LIBRARIES, provided by FindZLIB.
     message(STATUS "Setting ZLIB_INCLUDE_DIRS to '${_ZLIB_INCLUDE_DIRS}'.")
     set(ZLIB_INCLUDE_DIRS "${_ZLIB_INCLUDE_DIRS}" CACHE STRING "")
@@ -33,7 +34,6 @@ function(vad_live)
     endif()
     mark_as_advanced(FORCE ZLIB_INCLUDE_DIRS)
     mark_as_advanced(FORCE ZLIB_LIBRARIES)
-
     # Fetch the full version string from zlib.h, and populate the versioning variable provided by FindZLIB.
     file(READ ${VAD_EXTERNAL_ROOT}/ZLIB/zlib.h _zlib_h_contents)
     string(REGEX REPLACE ".*#define[ \t]+ZLIB_VERSION[ \t]+\"([-0-9A-Za-z.]+)\".*"

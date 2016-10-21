@@ -2,7 +2,7 @@ include(VigraAddDep)
 
 function(vad_system)
   vad_system_default(${ARGN})
-  if(LIBLZMA_FOUND)
+  if(LIBLZMA_FOUND AND NOT TARGET LibLZMA::LibLZMA)
     message(STATUS "Creating the LibLZMA::LibLZMA imported target.")
     add_library(LibLZMA::LibLZMA UNKNOWN IMPORTED)
     set_target_properties(LibLZMA::LibLZMA PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LIBLZMA_INCLUDE_DIRS}")
