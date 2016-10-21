@@ -41,12 +41,6 @@ template <int x_degree, int y_degree> struct Poly2dError {
   double x_,y_,val_, w_;
 };
 
-template<typename T> constexpr
-T const& const_max(T const& a, T const& b) {
-  return a > b ? a : b;
-}
-
-
 template <int x_degree, int y_degree> struct PolyPers2dError {
   PolyPers2dError(double x, double y, double valx, double valy, double w)
       : x_(x), y_(y), val_x_(valx), val_y_(valy), w_(w) {}
@@ -88,7 +82,11 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double x, double y, double valx, double valy, double w) {
-    return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+const_max(2*x_degree*y_degree-4,0)>(
+    if (0 >  2 * x_degree*y_degree - 4)
+      return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9>(
+      new PolyPers2dError(x, y, valx, valy, w)));
+    else
+     return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+2*x_degree*y_degree-4>(
                 new PolyPers2dError(x, y, valx, valy, w)));
   }
 
