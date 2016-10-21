@@ -22,7 +22,7 @@ const double enforce_cams_line = 10.0;
 int _calib_cams_limit = 1000;
 int _calib_views_limit = 1000;
   
-#ifdef MM_MESH_WITH_VIEWER
+#ifdef UCALIB_WITH_MM_MESH
   #include "mm-mesh/mesh.hpp"
   #include <thread>
 #endif
