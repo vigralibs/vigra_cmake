@@ -1759,20 +1759,30 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   options.max_num_iterations = 5000;
   //refine_pinhole_ispace(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   
-  /*solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
+  solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
   
-  Mat_<double> target_mesh({3, 6, 6});
+  Mat_<double> target_mesh({3, 20, 20});
   cv::Point2i target_size(20,20);
   
   cvMat(target_mesh).setTo(0);
   
   solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, target_size, target_mesh);
   
-  for(int j=0;j<target_mesh[2];j++) {
-    for(int i=0;i<target_mesh[2];i++)
+  Mesh target_vis = mesh_subdiv_plane(target_mesh[1],target_mesh[2]);
+  
+  target_vis.scale(double(target_size.x)/target_mesh[1]);
+  
+  for(int j=0;j<target_mesh[1];j++) {
+    for(int i=0;i<target_mesh[2];i++) {
       printf("[%2.2f %2.2f %2.2f]", target_mesh(0,i,j), target_mesh(1,i,j), target_mesh(2,i,j));
+      target_vis.V(j*target_mesh[1]+i, 0) += target_mesh(0,i,j);
+      target_vis.V(j*target_mesh[1]+i, 1) += target_mesh(1,i,j);
+      target_vis.V(j*target_mesh[1]+i, 2) += target_mesh(2,i,j);
+    }
+    
     printf("\n");
-  }*/
+  }
+  target_vis.show(false);
   
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     if (lines({0, line_pos.r(1,-1)}) == 0 &&
@@ -1785,6 +1795,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
           lines({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
         }
   }
+  
   
   //_zline_problem_eval_pinhole_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
   
