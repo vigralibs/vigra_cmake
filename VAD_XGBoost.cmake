@@ -12,7 +12,7 @@ function(vad_live)
   add_library(_VAD_XGBoost_STUB INTERFACE)
   list(APPEND _XGBoost_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/XGBoost/include" "${VAD_EXTERNAL_ROOT}/XGBoost/dmlc-core/include" "${VAD_EXTERNAL_ROOT}/XGBoost/rabit/include")
   set_property(TARGET _VAD_XGBoost_STUB PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${_XGBoost_INCLUDE_DIRS})
-  set_property(TARGET _VAD_XGBoost_STUB PROPERTY INTERFACE_LINK_LIBRARIES rabit xgboost dmlccore)
+  set_property(TARGET _VAD_XGBoost_STUB PROPERTY INTERFACE_LINK_LIBRARIES rabit libxgboost dmlccore)
 
   add_library(XGBoost::XGBoost ALIAS _VAD_XGBoost_STUB)
 endfunction()
