@@ -122,6 +122,14 @@ function(find_package NAME)
   vigra_add_dep(${NAME} SYSTEM ${ARGN})
 endfunction()
 
+function(make_imported_targets_global)
+  get_property(_IMP_NOGLOB_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
+  foreach(_NEWLIB ${_IMP_NOGLOB_LIB_LIST})
+    vad_make_imported_target_global("${_NEWLIB}")
+  endforeach()
+  set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST "")
+endfunction()
+
 # In addition to calling the builtin find_package(), this function
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
@@ -174,11 +182,7 @@ function(find_package_plus NAME)
   set(VAD_NEW_VARS_${NAME} ${_DIFFVARS} CACHE INTERNAL "")
 
   # Now take care of turning any IMPORTED non-GLOBAL target defined by a find_package() call into a GLOBAL one.
-  get_property(_IMP_NOGLOB_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
-  foreach(_NEWLIB ${_IMP_NOGLOB_LIB_LIST})
-    vad_make_imported_target_global("${_NEWLIB}")
-  endforeach()
-  set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST "")
+  make_imported_targets_global()
 endfunction()
 
 # The default vad_system() function.
