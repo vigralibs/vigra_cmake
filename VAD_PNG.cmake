@@ -1,19 +1,32 @@
+include(VigraAddDep)
+
 set(GIT_REPO "https://github.com/glennrp/libpng.git")
 
 function(vad_live)
+  # Clone and add the subdirectory.
   git_clone(PNG)
   add_subdirectory("${VAD_EXTERNAL_ROOT}/PNG" "${VAD_EXTERNAL_ROOT}/PNG/build_external_dep")
 
   # We are now going to reconstruct the targets/variables provided by the standard FindPNG module,
   add_library(_VAD_PNG_STUB INTERFACE)
-  # TODO shared/static?
+  # Include dirs.
   list(APPEND _PNG_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/PNG" "${VAD_EXTERNAL_ROOT}/PNG/build_external_dep")
   set_property(TARGET _VAD_PNG_STUB PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${_PNG_INCLUDE_DIRS})
+  # By default PNG is build in both static and shared variants. So, we associate to our PNG target
+  # the preferred library type.
   if(VAD_PREFER_STATIC OR VAD_PNG_PREFER_STATIC)
       set_target_properties(_VAD_PNG_STUB PROPERTIES INTERFACE_LINK_LIBRARIES pngstatic)
   else()
       set_target_properties(_VAD_PNG_STUB PROPERTIES INTERFACE_LINK_LIBRARIES png)
   endif()
+  # According to FindPNG.cmake, the only case in which we need special definitions is when compiling
+  # the static library in cygwin.
+  if(CYGWIN)
+    if(VAD_PREFER_STATIC OR VAD_PNG_PREFER_STATIC)
+      set(PNG_DEFINITIONS PNG_STATIC CACHE INTERNAL)
+    endif()
+  endif()
+  set_target_properties(_VAD_PNG_STUB PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${PNG_DEFINITIONS}")
   add_library(PNG::PNG ALIAS _VAD_PNG_STUB)
   set(PNG_FOUND TRUE CACHE INTERNAL "")
 
