@@ -279,7 +279,7 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
 
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, double *scale = NULL)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
@@ -363,8 +363,8 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   //std::cout << summary.FullReport() << "\n";
 
   //approximate scale
-  double scale = norm(eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(1e-6,1e-6), coeffs))/(sqrt(2)*1e-6);
-  return sqrt((summary.final_cost)/w_sum)/scale;
+  *scale = (sqrt(2)*1e-3)/norm(eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(1e-3,1e-3), coeffs));
+  return sqrt((summary.final_cost)/w_sum)*(*scale);
 }
 
 template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, double *coeffs)
