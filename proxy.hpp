@@ -54,10 +54,10 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
     for(int y=0;y<proxy[2];y++) {
       for(int x=0;x<proxy[1];x++) {
         int count;
-        double scale;
+        double xscale, yscale;
         double coeffs[9+x_degree*y_degree*2];
         cv::Point2f c = cv::Point2f((x+0.5)*idim.x/proxy[1],(y+0.5)*idim.y/proxy[2]);
-        double rms = fit_2d_pers_poly_2d<x_degree,y_degree>(img_points, world_points, c, coeffs, sigma, &count, &scale);
+        double rms = fit_2d_pers_poly_2d<x_degree,y_degree>(img_points, world_points, c, coeffs, sigma, &count, &xscale, &yscale);
         cv::Point2f res;
         if (std::isnan(rms) || ((!minpoints && count < 50) || (count < minpoints))
           /*|| rms >= 0.1*/) //FIXME debug large rms!
@@ -66,10 +66,12 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
           res = eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2f(0,0), coeffs);
         proxy(0,x,y) = res.x;
         proxy(1,x,y) = res.y;
-        if (scales)
-          (*scales)(x,y) = scale;
-//#pragma omp critical
-//        printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
+        if (scales) {
+          (*scales)(0,x,y) = xscale;
+          (*scales)(1,x,y) = yscale;
+        }
+#pragma omp critical
+        printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
       }
     }
 }
