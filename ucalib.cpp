@@ -16,7 +16,7 @@ const double extr_center_size = 0.2;
 const double non_center_rest_weigth = 1e-4;
 const double strong_proj_constr_weight = 10.0;
 const double proj_constr_weight = 0.01;
-const double center_constr_weight = 0.1;
+const double center_constr_weight = 1.0;
 const double enforce_cams_line = 10.0;
 
 int _calib_cams_limit = 1000;
@@ -833,8 +833,8 @@ struct LineZ3GenericError {
 
 // Generic line error, with target deformation
 struct LineZ3GenericFreeMeshError {
-  LineZ3GenericFreeMeshError(double x, double y, double ws[4], double wx, double wy)
-      : x_(x), y_(y), wx_(wx), wy_(wy) { for(int i=0;i<4;i++) ws_[i] = ws[i]; }
+  LineZ3GenericFreeMeshError(double x, double y, double ws[4], cv::Mat_<float> j)
+      : x_(x), y_(y) { for(int i=0;i<4;i++) ws_[i] = ws[i]; j_ = j.clone(); }
       
   template <typename T>
   bool operator()(const T* const extr, const T* const line, const T* const tl, const T* const tr, const T* const bl,  const T* const br,
@@ -860,23 +860,35 @@ struct LineZ3GenericFreeMeshError {
     p[1] += extr[4];
     p[2] += extr[5];
     
+    T p_c[3]; //res in cam coordinates
+    T p_t[3]; //res in target coordinates
+    T r_neg[3] = {-extr[0],-extr[1],-extr[2]};
+    
     //compare with projected pinhole camera ray
-    residuals[0] = (p[0] - (line[0] + p[2]*line[2]))*T(wx_);
-    residuals[1] = (p[1] - (line[1] + p[2]*line[3]))*T(wy_);
+    p_c[0] = (p[0] - (line[0] + p[2]*line[2]));
+    p_c[1] = (p[1] - (line[1] + p[2]*line[3]));
+    p_c[2] = T(0);
+    
+    ceres::AngleAxisRotatePoint(r_neg, p_c, p_t);
+    
+    //TODO check p_t[2] == 0 -> no-not the case...
+    residuals[0] = T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1];
+    residuals[1] = T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1];
     
     return true;
   }
 
   // Factory to hide the construction of the CostFunction object from
   // the client code.
-  static ceres::CostFunction* Create(double x, double y, double ws[4], double wx, double wy) {
+  static ceres::CostFunction* Create(double x, double y, double ws[4], cv::Mat_<float> j) {
     return (new ceres::AutoDiffCostFunction<LineZ3GenericFreeMeshError, 2, 6, 4, 3, 3, 3, 3>(
-                new LineZ3GenericFreeMeshError(x, y, ws, wx, wy)));
+                new LineZ3GenericFreeMeshError(x, y, ws, j)));
   }
 
   double x_,y_;
   double ws_[4];
   double wx_, wy_;
+  cv::Mat_<float> j_;
 };
 
 
@@ -1575,15 +1587,6 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
     if (isnan(p.x) || isnan(p.y))
       continue;
     
-    //keep center looking straight
-    //TODO add mesh mod to center line functions...
-    if (ray["y"] == center.y && ray["x"] == center.x && !reproj_error_calc_only) {
-      ceres::CostFunction* cost_function =
-      LineZ3GenericCenterDirError::Create();
-      problem.AddResidualBlock(cost_function, NULL, 
-                              &lines({0,ray.r("x","cams")}));
-    }
-    
     if (ray["y"] == center.y && (/*ray["x"] == center.x-1 ||*/ ray["x"] == center.x+1) && !reproj_error_calc_only) {
       //FIXME use actual views for this ray!
       ceres::CostFunction* cost_function = LineZ3GenericCenterError::Create(10000000000);
@@ -1597,11 +1600,11 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
                               &lines({0,ray.r("x","cams")}));
     }
     
-    if (ray["y"] == center.y+1 && ray["x"] == center.x && !reproj_error_calc_only) {
+    /*if (ray["y"] == center.y+1 && ray["x"] == center.x && !reproj_error_calc_only) {
       ceres::CostFunction* cost_function = LineZ3GenericCenterDirYOnlyError::Create();
       problem.AddResidualBlock(cost_function, NULL,
                               &lines({0,ray.r("x","cams")}));
-    }
+    }*/
     
     
   
@@ -1669,9 +1672,11 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
       
       double wx = 1.0, wy = 1.0;
       
-      if (scales.total()) {
-        wx = scales(ray.r("x",-1));
-        wy = scales(ray.r("x",-1));
+      cv::Mat j;
+      if (proxy_j.total()) {
+        j = cvMat(proxy_j.bindAll(-1, -1, ray["x"], ray["y"], ray["channels"], ray["cams"], ray["views"]));
+        j = j.clone();
+        invert(j, j);
       }
       
       if (!reproj_error_calc_only) {
@@ -1680,9 +1685,18 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
         lines({1,ray.r("x","cams")}) += (rand() / double(RAND_MAX)-0.5)*0.1;
       }
       
+      if (ray["y"] == center.y && ray["x"] == center.x && !reproj_error_calc_only) {
+        //printf("setting pblock constant %p!\n", &lines({0,ray.r("x","cams")}));
+        //cout << lines({0,ray.r("x","cams")}) << lines({1,ray.r("x","cams")}) << lines({2,ray.r("x","cams")}) << lines({3,ray.r("x","cams")}) << "\n";
+        lines({0,ray.r("x","cams")}) = 0;
+        lines({1,ray.r("x","cams")}) = 0;
+        lines({2,ray.r("x","cams")}) = 0;
+        lines({3,ray.r("x","cams")}) = 0;
+      }
+      
       //regular line error (in x/y world direction)
       ceres::CostFunction* cost_function = 
-      LineZ3GenericFreeMeshError::Create(p.x, p.y, ws, wx, wy);
+      LineZ3GenericFreeMeshError::Create(p.x, p.y, ws, j);
       problem.AddResidualBlock(cost_function,
                               NULL,
                               &extrinsics({0,ray["views"]}),
@@ -1713,6 +1727,19 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
         problem.SetParameterBlockConstant(&mesh(0,mesh_i.x+1, mesh_i.y));
         problem.SetParameterBlockConstant(&mesh(0,mesh_i.x, mesh_i.y+1));
         problem.SetParameterBlockConstant(&mesh(0,mesh_i.x+1, mesh_i.y+1));
+      }
+      
+      
+      //keep center looking straight
+      //TODO add mesh mod to center line functions...
+      if (ray["y"] == center.y && ray["x"] == center.x && !reproj_error_calc_only) {
+        //printf("setting pblock constant %p!\n", &lines({0,ray.r("x","cams")}));
+        //cout << lines({0,ray.r("x","cams")}) << lines({1,ray.r("x","cams")}) << lines({2,ray.r("x","cams")}) << lines({3,ray.r("x","cams")}) << "\n";
+        lines({0,ray.r("x","cams")}) = 0;
+        lines({1,ray.r("x","cams")}) = 0;
+        lines({2,ray.r("x","cams")}) = 0;
+        lines({3,ray.r("x","cams")}) = 0;
+        problem.SetParameterBlockConstant(&lines({0,ray.r("x","cams")}));
       }
       
       /*double proj_weight = 10.0;
@@ -1773,7 +1800,7 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
     }
 }
 
-cv::Point2d calc_line_residuals(const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj, Mat_<double> &lines, cv::Point2i img_size, cv::Point2d target_size, Mat_<double> &mesh, const Mat_<float> &scales = Mat_<float>(), const cv::Point2d &filter = cv::Point2d(0,0), int *filtered_r = NULL)
+cv::Point2d calc_line_residuals(const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj, Mat_<double> &lines, cv::Point2i img_size, cv::Point2d target_size, Mat_<double> &mesh, const Mat_<float> &proxy_j = Mat_<float>(), const cv::Point2d &filter = cv::Point2d(0,0), int *filtered_r = NULL)
 {
   
   cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
@@ -1821,16 +1848,16 @@ cv::Point2d calc_line_residuals(const Mat_<float>& proxy, Mat_<double> &extrinsi
           
           assert(mesh_i.x+1<mesh[1] && mesh_i.y+1<mesh[2]);
           
-          double wx = 1.0, wy = 1.0;
-          
-          if (scales.total()) {
-            wx = scales(ray.r("x",-1));
-            wy = scales(ray.r("x",-1));
+          cv::Mat j;
+          if (proxy_j.total()) {
+            j = cvMat(proxy_j.bindAll(-1, -1, ray["x"], ray["y"], ray["channels"], ray["cams"], ray["views"]));
+            j = j.clone();
+            invert(j, j);
           }
           
           //regular line error (in x/y world direction)
           ceres::CostFunction* cost_function = 
-          LineZ3GenericFreeMeshError::Create(p.x, p.y, ws, wx, wy);
+          LineZ3GenericFreeMeshError::Create(p.x, p.y, ws, j);
           double res[2];
           
           double *params[] = {&extrinsics({0,view["views"]}),
@@ -1845,8 +1872,8 @@ cv::Point2d calc_line_residuals(const Mat_<float>& proxy, Mat_<double> &extrinsi
           res[0] = abs(res[0]);
           res[1] = abs(res[1]);
           
-          if ((filter.x != 0.0 && res[0] > filter.x) || (filter.y != 0.0 && res[1] > filter.y)) {
-            cout << res[0] << "x"<< res[1] << "\n";
+          if ((ray["x"] != center.x || ray["y"] != center.y) && ((filter.x != 0.0 && res[0] > filter.x) || (filter.y != 0.0 && res[1] > filter.y))) {
+            //cout << res[0] << "x"<< res[1] << ray << center << "\n";
             proxy({0,ray.r("x","y"),view.r("channels",-1)}) = std::numeric_limits<float>::quiet_NaN();
             proxy({1,ray.r("x","y"),view.r("channels",-1)}) = std::numeric_limits<float>::quiet_NaN();
             filtered++;
@@ -2226,7 +2253,7 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   
   options.max_num_iterations = 100;
   _calib_cams_limit = 0;
-  for(_calib_views_limit=8;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(int(_calib_views_limit)+1,proxy["views"])) {
+  for(_calib_views_limit=3;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(int(_calib_views_limit)+1,proxy["views"])) {
     solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
   }
   if (proxy["views"] > 1) 
@@ -2269,32 +2296,34 @@ double fit_cams_lines_multi(const Mat_<float>& proxy, cv::Point2i img_size, Mat_
   
   solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0, 0);
   printf("pinhole rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, scales);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
   
   solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
   printf("non-central rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, scales);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
   
   //cvMat(target_mesh).setTo(double(target_size.x)/target_mesh[1]);
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, scales);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, j);
   printf("deformation rms:\n");
   
   cv::Point2d res_avg;
   int filtered = 1;
   
   while (filtered) {
-    res_avg = calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, scales);
-    calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, scales, res_avg*4, &filtered);
+    res_avg = calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j);
+    res_avg.x = max(res_avg.x, res_avg.y);
+    res_avg.y = res_avg.x;
+    calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j, res_avg*4, &filtered);
     if (filtered) {
       //cvMat(target_mesh).setTo(double(target_size.x)/target_mesh[1]);
-      solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, scales);
+      solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, j);
     }
   }
   
   printf("final rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, scales);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
   
-  correct_cam_center(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, scales);
+  correct_cam_center(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
 
   printf("proj last: %f %f\n", proj(0), proj(1));
   

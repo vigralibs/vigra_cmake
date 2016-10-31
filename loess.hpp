@@ -279,7 +279,7 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
 
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, double *xscale = NULL, double *yscale = NULL)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, clif::Mat_<float> *J = NULL)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
@@ -363,9 +363,20 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   //std::cout << summary.FullReport() << "\n";
 
   //approximate scale
-  *xscale = (1e-3)/norm(eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(1e-3,0), coeffs));
-  *yscale = (1e-3)/norm(eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,1e-3), coeffs));
-  return sqrt((summary.final_cost)/w_sum)*sqrt((*xscale)*(*xscale)+(*yscale)*(*yscale));
+  double scale = sqrt(2)*1e-3/norm(eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(1e-3,1e-3), coeffs));
+  
+  if (J) {
+    cv::Point2d d = eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(1e-3,0), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs);
+    d *= 1/1e-3;
+    (*J)(0, 0) = d.x;
+    (*J)(1, 0) = d.y;
+    d = eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,1e-3), coeffs)-eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2d(0,0), coeffs);
+    d *= 1/1e-3;
+    (*J)(0, 1) = d.x;
+    (*J)(1, 1) = d.y;
+  }
+  
+  return sqrt((summary.final_cost)/w_sum)*scale;
 }
 
 template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, double *coeffs)
