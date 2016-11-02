@@ -51,6 +51,8 @@ endfunction()
 # if it is a non-global imported target. It will then be turned into a global imported target by find_package().
 # We will also record the library location in a generator expression.
 function(add_library NAME)
+  # Check if the target is an imported non-global one. In that case, add it to the list of non-global imported
+  # targets.
   list(FIND ARGN "IMPORTED" _IDX_IMP)
   list(FIND ARGN "GLOBAL" _IDX_GLOB)
   if(NOT _IDX_IMP EQUAL -1 AND _IDX_GLOB EQUAL -1)
@@ -61,7 +63,11 @@ function(add_library NAME)
     list(APPEND _LIB_LIST "${NAME}")
     set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST ${_LIB_LIST})
   endif()
+
+  # Call the original add_library() function.
   _add_library(${NAME} ${ARGN})
+
+  # If the target is not INTERFACE or ALIAS, we will record its location.
   list(FIND ARGN "INTERFACE" _IDX_IFACE)
   list(FIND ARGN "ALIAS" _IDX_ALIAS)
   if(_IDX_IFACE EQUAL -1 AND _IDX_ALIAS EQUAL -1)
@@ -120,13 +126,18 @@ function(vad_make_imported_target_global NAME)
           set_property(TARGET _VAD_${NAME}_STUB PROPERTY "${TPROP}" "${PROP}")
       endif()
   endforeach()
+
   # Create the final aliases. We need to remove any double colon from the original name as they are not allowed
   # in the names of targets in this context.
   string(REPLACE "::" "" NAME_NO_COLONS "${NAME}")
   add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
   target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${NAME}_STUB)
   add_library("${NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
-  # ....
+
+  # We need to remove the library dir for the original target from the global list:
+  # the target is now just an alias with no TARGET_FILE_DIR property. Its actual
+  # TARGET_FILE_DIR property has been recorded in the STUB targets, which export
+  # this information in the global list.
   get_property(_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
   list(REMOVE_ITEM _LIBRARY_DIR_LIST "$<TARGET_FILE_DIR:${NAME}>")
   set_property(GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST ${_LIBRARY_DIR_LIST})
