@@ -76,9 +76,9 @@ FUNCTION(vigra_add_test target)
 
     ADD_DEPENDENCIES(check_cpp ${target})
     ADD_DEPENDENCIES(ctest ${target})
-    ADD_DEPENDENCIES(${target} vigra_core)
+    #ADD_DEPENDENCIES(${target} vigra_core)
 
-    TARGET_LINK_LIBRARIES(${target} vigra_core)
+    #TARGET_LINK_LIBRARIES(${target} vigra_core)
     if(AT_LIBRARIES)
         TARGET_LINK_LIBRARIES(${target} ${AT_LIBRARIES})
     endif()
@@ -120,17 +120,32 @@ FUNCTION(vigra_add_test target)
     IF(MSVC)
         SET(VIGRA_RUN_TEST "${CMAKE_CURRENT_BINARY_DIR}/run_${target}.bat")
         SET(VIGRA_TEST_EXECUTABLE "\"${VIGRA_TEST_EXECUTABLE}\"")  # take care of paths with spaces
+        # This list contains the directory paths (in generator syntax) of all libraries addes so far via add_library() (this
+        # includes also targets imported by find_package()).
+        get_property(VAD_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
+        # Before using the path list as a path variable we need to replace the ";" character,
+        # used to separate list items in CMake, with ":" (the path separator).
+        string(REPLACE ";" ":" VAD_LIBRARY_DIR_LIST "${VAD_LIBRARY_DIR_LIST}")
+        # Add a final ":" for concatenation with the existing path.
+        set(VAD_LIBRARY_DIR_LIST "${VAD_LIBRARY_DIR_LIST}:")
+        # Create a file containing the generator expressions at configure time.
         CONFIGURE_FILE(${VigraAddTestPath}/run_test.bat.in
-                       ${VIGRA_RUN_TEST}
+                       "${VIGRA_RUN_TEST}.generate"
                        @ONLY)
+        # Turn the generator expressions into real paths at generate time.
+        file(GENERATE OUTPUT ${VIGRA_RUN_TEST} INPUT "${VIGRA_RUN_TEST}.generate")
     ELSE()
         IF(VIGRA_RUN_TESTS_DIRECTLY)
           SET(VIGRA_RUN_TEST "${CMAKE_CURRENT_BINARY_DIR}/${target}")
         ELSE()
           SET(VIGRA_RUN_TEST "${CMAKE_CURRENT_BINARY_DIR}/run_${target}.sh")
+          get_property(VAD_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
+          string(REPLACE ";" ":" VAD_LIBRARY_DIR_LIST "${VAD_LIBRARY_DIR_LIST}")
+          set(VAD_LIBRARY_DIR_LIST "${VAD_LIBRARY_DIR_LIST}:")
           CONFIGURE_FILE(${VigraAddTestPath}/run_test.sh.in
-                         ${VIGRA_RUN_TEST}
+                         "${VIGRA_RUN_TEST}.generate"
                          @ONLY)
+          file(GENERATE OUTPUT ${VIGRA_RUN_TEST} INPUT "${VIGRA_RUN_TEST}.generate")
           EXECUTE_PROCESS(COMMAND chmod u+x ${VIGRA_RUN_TEST} OUTPUT_QUIET ERROR_QUIET)
         ENDIF()
     ENDIF()

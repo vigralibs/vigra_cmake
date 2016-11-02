@@ -49,11 +49,14 @@ endfunction()
 
 # Override the builtin add_library() function so that the new library is appended to a global list
 # if it is a non-global imported target. It will then be turned into a global imported target by find_package().
+# We will also record the library location in a generator expression.
 function(add_library NAME)
   list(FIND ARGN "IMPORTED" _IDX_IMP)
   list(FIND ARGN "GLOBAL" _IDX_GLOB)
   if(NOT _IDX_IMP EQUAL -1 AND _IDX_GLOB EQUAL -1)
-    message(STATUS "Adding target '${NAME}' to the list of non-global imported targets.")
+    if(VAD_VERBOSE)
+      message(STATUS "Adding target '${NAME}' to the list of non-global imported targets.")
+    endif()
     get_property(_LIB_LIST GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST)
     list(APPEND _LIB_LIST "${NAME}")
     set_property(GLOBAL PROPERTY _VAD_IMPORTED_NOGLOBAL_LIST ${_LIB_LIST})
@@ -61,8 +64,11 @@ function(add_library NAME)
   _add_library(${NAME} ${ARGN})
   list(FIND ARGN "INTERFACE" _IDX_IFACE)
   list(FIND ARGN "ALIAS" _IDX_ALIAS)
-  if(_IDX_IFACE EQUAL -1 AND _IDX_ALIAS EQUAL -1 AND NOT "${NAME}" MATCHES "^_VAD.*_STUB")
-    file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/${NAME}.cmake_location" CONTENT "$<TARGET_FILE:${NAME}>")
+  if(_IDX_IFACE EQUAL -1 AND _IDX_ALIAS EQUAL -1)
+    get_property(_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
+    list(APPEND _LIBRARY_DIR_LIST "$<TARGET_FILE_DIR:${NAME}>")
+    list(REMOVE_DUPLICATES _LIBRARY_DIR_LIST)
+    set_property(GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST ${_LIBRARY_DIR_LIST})
   endif()
 endfunction()
 
@@ -87,9 +93,13 @@ function(vad_make_imported_target_global NAME)
   # - we create an alias for the INTERFACE target with the name of the original target.
   # It is necessary to go through the double indirection because of certain CMake rules regarding the allowed target
   # names.
-  message(STATUS "Turning IMPORTED target '${NAME}' into a GLOBAL target.")
+  if(VAD_VERBOSE)
+    message(STATUS "Turning IMPORTED target '${NAME}' into a GLOBAL target.")
+  endif()
   get_target_property(TARGET_TYPE ${NAME} TYPE)
-  message(STATUS "Target type is: ${TARGET_TYPE}")
+  if(VAD_VERBOSE)
+    message(STATUS "Target type is: ${TARGET_TYPE}")
+  endif()
   if(TARGET_TYPE MATCHES "INTERFACE_LIBRARY")
     add_library(_VAD_${NAME}_STUB INTERFACE IMPORTED GLOBAL)
   else()
@@ -104,7 +114,9 @@ function(vad_make_imported_target_global NAME)
       endif()
       get_target_property(PROP ${NAME} "${TPROP}")
       if(PROP)
-          message(STATUS "Copying property '${TPROP}' of IMPORTED target '${NAME}': '${PROP}'")
+          if(VAD_VERBOSE)
+            message(STATUS "Copying property '${TPROP}' of IMPORTED target '${NAME}': '${PROP}'")
+          endif()
           set_property(TARGET _VAD_${NAME}_STUB PROPERTY "${TPROP}" "${PROP}")
       endif()
   endforeach()
@@ -114,6 +126,10 @@ function(vad_make_imported_target_global NAME)
   add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
   target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${NAME}_STUB)
   add_library("${NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
+  # ....
+  get_property(_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
+  list(REMOVE_ITEM _LIBRARY_DIR_LIST "$<TARGET_FILE_DIR:${NAME}>")
+  set_property(GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST ${_LIBRARY_DIR_LIST})
 endfunction()
 
 # Override the builtin find_package() function to just call vigra_add_dep(). The purpose of this override is to make
@@ -162,10 +178,12 @@ function(find_package_plus NAME)
           # New var was not found among the old ones. We check if it starts with
           # ${NAME} (case insensitively), in which case we will add it to the cached variables.
           string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
-          if(_NEWVAR_LOW MATCHES "^${_NAME_LOW}.*")
+          if(NOT _NEWVAR_LOW MATCHES "^_.*" AND NOT _NEWVAR_LOW MATCHES "^vad.*")
             # Make sure we don't store multiline strings in the cache, as that is not supported.
             string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
-            message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
+            if(VAD_VERBOSE)
+              message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
+            endif()
             if(_NEWVAR_LOW MATCHES "librar" OR _NEWVAR_LOW MATCHES "include")
               # Variables which are likely to represent lib paths or include dirs are set as string variables,
               # so that they are visible from the GUI.
