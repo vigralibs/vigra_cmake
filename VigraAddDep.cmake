@@ -189,7 +189,7 @@ function(find_package_plus NAME)
           # New var was not found among the old ones. We check if it starts with
           # ${NAME} (case insensitively), in which case we will add it to the cached variables.
           string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
-          if(NOT _NEWVAR_LOW MATCHES "^_.*" AND NOT _NEWVAR_LOW MATCHES "^vad.*")
+          if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package")
             # Make sure we don't store multiline strings in the cache, as that is not supported.
             string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
             if(VAD_VERBOSE)
