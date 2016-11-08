@@ -284,13 +284,19 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
   //options.num_threads = 8;
-  options.num_linear_solver_threads = 8;
+  //options.num_linear_solver_threads = 8;
   //options.minimizer_progress_to_stdout = true;
   //options.trust_region_strategy_type = ceres::DOGLEG;
   options.linear_solver_type = ceres::DENSE_QR;
   options.logging_type = ceres::SILENT;
-  //options.parameter_tolerance = 1e-20;
-  //options.gradient_tolerance = 1e-20;
+  options.function_tolerance = 1e-20;
+  options.parameter_tolerance = 1e-20;
+  options.gradient_tolerance = 1e-20;
+  
+  //options.enable_fast_removal = true;
+  
+  ceres::Problem::Options popts;
+  popts.enable_fast_removal = true;
   
   double w_sum = 0.0;
   
@@ -311,6 +317,10 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   for(int i=1;i<x_degree*y_degree;i++)
     coeffs[9+i+x_degree*y_degree] = 0.0;
   
+  
+  std::vector<ceres::ResidualBlockId> ids;
+  std::vector<double> ws;
+  
   ceres::Problem problem;
   ceres::Problem problem_pers;
   if (count)
@@ -318,22 +328,25 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   for(int i=0;i<ips.size();i++) {
       cv::Point2d ip = (cv::Point2d(ips[i])-center);
       double w = exp(-(ip.x*ip.x+ip.y*ip.y)/(2.0*sigma*sigma));
-      if (w <= 0.05)
+      if (w*w <= 0.05)
         continue;
       if (count)
         (*count)++;
-      w_sum += w;
+      w_sum += w*w;
       wc += w*ip;
         ceres::CostFunction* cost_function =
-            PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, sqrt(w));
+            PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
             
-        problem.AddResidualBlock(cost_function,
+        ceres::ResidualBlockId bid = problem.AddResidualBlock(cost_function,
                                  NULL,
                                 coeffs);
         
+        ids.push_back(bid);
+        ws.push_back(w);
+        
         
         ceres::CostFunction* cost_function_pers =
-            Pers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, sqrt(w));
+            Pers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, w);
             
         problem_pers.AddResidualBlock(cost_function_pers,
                                  NULL,
@@ -347,9 +360,111 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem_pers, &summary);
+  
+  double px = abs(coeffs[6]/coeffs[8]);
+  double py = abs(coeffs[7]/coeffs[8]);
+  
+  if (std::max(px,py) > 0.0002)
+    return std::numeric_limits<double>::quiet_NaN();
+  
   //printf("%5d / ", summary.num_successful_steps);
   //std::cout << summary.FullReport() << "\n";
   ceres::Solve(options, &problem, &summary);
+  
+  
+  /*int removed = 1;
+  
+  while (removed) {
+    removed = 0;
+    double avg = 0;
+    double m = 0;
+    int avg_c = 0;
+    for(int i=0;i<ids.size();i++) {
+      if (ws[i] == 0)
+        continue;
+      
+      const ceres::CostFunction* cost_function = problem.GetCostFunctionForResidualBlock(ids[i]);
+      
+      double res[2];
+      double *params[] = {coeffs};
+      
+      cost_function->Evaluate(params, res, NULL);
+      double v = sqrt(res[0]*res[0]+res[1]*res[1])/ws[i];
+      avg += v;
+      avg_c++;
+      m = std::max(m, v);
+    }
+    avg /= avg_c;
+    //printf("avg: %f max: %f rms: %f\n", avg, m, sqrt((summary.final_cost)/w_sum));
+    
+    w_sum = 0;
+    for(int i=0;i<ids.size();i++) {
+      if (ws[i] == 0)
+        continue;
+      
+      const ceres::CostFunction* cost_function = problem.GetCostFunctionForResidualBlock(ids[i]);
+      
+      double res[2];
+      double *params[] = {coeffs};
+      
+      cost_function->Evaluate(params, res, NULL);
+      double v = sqrt(res[0]*res[0]+res[1]*res[1])/ws[i];
+      
+      if (v >= avg*3) {
+        problem.RemoveResidualBlock(ids[i]);
+        removed++;
+        ws[i] = 0;
+      }
+      else
+        w_sum += ws[i];
+    }
+  
+    if (removed) {
+      ceres::Solve(options, &problem, &summary);
+      //printf("removed %d of %d samples, rms: %f\n", ids.size()-summary.num_residual_blocks, ids.size() ,sqrt((summary.final_cost)/w_sum));
+    }
+  }*/
+  
+  
+  /*
+  for(int i=0;i<ips.size();i++) {
+    cv::Point2d ip = (cv::Point2d(ips[i])-center);
+    double w = exp(-(ip.x*ip.x+ip.y*ip.y)/(2.0*sigma*sigma));
+    if (w <= 0.05)
+      continue;
+    if (count)
+      (*count)++;
+    w_sum += w;
+    wc += w*ip;
+    ceres::CostFunction* cost_function =
+    PolyPers2dError<x_degree,y_degree>::Create(ip.x, ip.y, wps[i].x, wps[i].y, sqrt(w));
+    
+    double res[2];
+    double *params[] = {coeffs};
+    
+    cost_function->Evaluate(params, res, NULL);
+    double v = sqrt(res[0]*res[0]+res[1]*res[1]);
+    if (v >= avg*4)
+      problem.RemoveResidualBlock();
+  }*/
+  
+  /*cv::Point2d vx(coeffs[0]/coeffs[6],coeffs[3]/coeffs[6]);
+  cv::Point2d vy(coeffs[1]/coeffs[7],coeffs[4]/coeffs[7]);
+  cv::Point2d vz(coeffs[2]/coeffs[8],coeffs[5]/coeffs[8]);
+  
+  printf("vanish: %f %f %f\n", coeffs[6],coeffs[7],coeffs[8]);
+  
+  std::cout << "vanishing points: " << vx << vy << vz << "\n";*/
+  
+  //printf("pers: %f x %f\n", 1000*coeffs[6]/coeffs[8],1000*coeffs[7]/coeffs[8]);
+  
+  //std::cout << "perspectivity: " << (abs(coeffs[0])+abs(coeffs[3]))/abs(coeffs[6]) << " " << (abs(coeffs[1])+abs(coeffs[4]))/abs(coeffs[7]) << "\n";
+  
+  px = abs(coeffs[6]/coeffs[8]);
+  py = abs(coeffs[7]/coeffs[8]);
+  
+  if (std::max(px,py) > 0.0002)
+    return std::numeric_limits<double>::quiet_NaN();
   
   if (summary.termination_type == ceres::TerminationType::NO_CONVERGENCE){
     //printf("no convergence\n");
@@ -375,6 +490,16 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
     (*J)(0, 1) = d.x;
     (*J)(1, 1) = d.y;
   }
+  
+  if (*count)
+    *count = w_sum;
+  
+  /*for(int i=1;i<2*x_degree*y_degree;i++)
+    printf("%f ", coeffs[9+i]);
+    
+  printf("\n");*/
+
+  //printf("%f\n", w_sum);
   
   return sqrt((summary.final_cost)/w_sum)*scale;
 }

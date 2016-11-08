@@ -66,14 +66,14 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
         double rms = fit_2d_pers_poly_2d<x_degree,y_degree>(img_points, world_points, c, coeffs, sigma, &count, j_ptr);
         cv::Point2f res;
         if (std::isnan(rms) || ((!minpoints && count < 50) || (count < minpoints))
-          /*|| rms >= 0.1*/) //FIXME debug large rms!
+          /*|| rms >= 0.15*/) //FIXME debug large rms!
           res = cv::Point2f(std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN());
         else
           res = eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2f(0,0), coeffs);
         proxy(0,x,y) = res.x;
         proxy(1,x,y) = res.y;
-#pragma omp critical
-        printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
+//#pragma omp critical
+  //      printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
       }
     }
 }
