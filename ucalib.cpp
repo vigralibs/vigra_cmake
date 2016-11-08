@@ -25,8 +25,8 @@ int _calib_views_limit = 1000;
 #define NON_CENTRAL 1
 #define MESH 2
 #define RMS_ONLY 4
-
-#ifdef MM_MESH_WITH_VIEWER
+  
+#ifdef UCALIB_WITH_MM_MESH
   #include "mm-mesh/mesh.hpp"
   #include <thread>
 #endif
