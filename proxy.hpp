@@ -72,8 +72,8 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
           res = eval_2d_pers_poly_2d<x_degree,y_degree>(cv::Point2f(0,0), coeffs);
         proxy(0,x,y) = res.x;
         proxy(1,x,y) = res.y;
-//#pragma omp critical
-  //      printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
+#pragma omp critical
+        printf("rms: %3dx%3d %fx%f %f px (%d points)\n", x, y, res.x, res.y, rms, count);
       }
     }
 }
