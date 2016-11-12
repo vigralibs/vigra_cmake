@@ -214,6 +214,33 @@ void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec,
 
 }
 
+template<int N> struct KeepParamConstError {
+  KeepParamConstError(double w, const double * const vals)
+  : w_(w) 
+  {
+    for(int i=0;i<N;i++)
+      v_[i] = vals[i];
+  }
+  
+  template <typename T>
+  bool operator()(const T* const p,
+                  T* residuals) const {
+    for(int i=0;i<N;i++)
+      residuals[i] = (p[i]-T(v_[i]))*T(w_);
+    
+    return true;
+  }
+
+  static ceres::CostFunction* Create(double w, const double * const vals) {
+    return (new ceres::AutoDiffCostFunction<KeepParamConstError, N, N>(
+                new KeepParamConstError(w, vals)));
+  }
+ 
+ double v_[N];
+ double w_;
+};
+
+
 // Generic line error
 struct LineZ3GenericCenterLineError {
   LineZ3GenericCenterLineError(double x, double y)
@@ -877,8 +904,8 @@ struct LineZ3GenericFreeMeshError {
     ceres::AngleAxisRotatePoint(r_neg, p_c, p_t);
     
     //TODO check p_t[2] == 0 -> no-not the case...
-    residuals[0] = (T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1]) * T(1/0.1);
-    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) * T(1/0.1);
+    residuals[0] = (T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1]) ;//* T(1/0.1);
+    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) ;//* T(1/0.1);
     
     //residuals[0] = p_c[0];
     //residuals[1] = p_c[1];
@@ -1832,7 +1859,9 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
   //printf("set constant mesh point: %dx%d (%f samples)\n", mesh_i.x-2, mesh_i.y+2,mesh_coverage(mesh_i.x-2, mesh_i.y+2));
   problem.SetParameterBlockConstant(&mesh(0,mesh_i.x-2, mesh_i.y+2));
   
-  float min_coverage = 4000000;
+  return;
+  
+  float min_coverage = 4;
   float mesh_smoothness = 1;
   
   if (!reproj_error_calc_only)
@@ -2029,7 +2058,7 @@ double calc_line_residuals(const Mat_<float>& proxy, Mat_<double> &extrinsics, M
   
   cout << "avg: " << avg << "rms: " << sqrt(rms/count) << " med: " << med[count/2] << "\n";
   cout << " 1/10st: " << med[count*99/100] << "\n";
-  return max(sqrt(rms/count)*5/*med[count/2]*10*/,(double)med[count*99/100]);
+  return max(/*sqrt(rms/count)*/ (double)med[count/2]*5,(double)med[count*99/100]);
 }
 
 static void _zline_problem_add_center_errors(ceres::Problem &problem, Mat_<double> &lines, const Mat_<float> &proxy)
@@ -2187,45 +2216,55 @@ double solve_non_central_mesh(ceres::Solver::Options options, const Mat_<float>&
   ceres::Problem problem;
   double dir[3] = {0,0,0};
   
-  options.function_tolerance = 1e-20;
+  //options.function_tolerance = 1e-20;
   
   _zline_problem_add_generic_lines_mesh(problem, proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, mesh, reproj_error_calc_only, scales, flags);
   
   problem.SetParameterization(&extrinsics(0,0), new ceres::SubsetParameterization(6,{5}));
   //problem.SetParameterBlockConstant(&extrinsics(0,0));
   
-  
   if (reproj_error_calc_only)
     options.max_num_iterations = 0;
   
-  options.minimizer_progress_to_stdout = false;
+  options.minimizer_progress_to_stdout = true;
   
   printf("solving deformation problem\n");
   ceres::Solve(options, &problem, &summary);
   //if (!reproj_error_calc_only)
     //std::cout << summary.FullReport() << "\n";
-  printf("\nunconstrained rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
+  printf("\nunconstrained rms ~%fpx\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals())*0.1);
   
   
-  /*for(auto ray : Idx_It_Dims(proxy, "x", "views")) {
-    bool ref_cam = true;
-
-    
-                              &extrinsics({0,ray["views"]}),
-                              &lines({0,ray.r("x","cams")}),
-                              &lines({2,ray.r("x","cams")}),
-                              &mesh(0,mesh_i.x, mesh_i.y),
-                              &mesh(0,mesh_i.x+1, mesh_i.y),
-                              &mesh(0,mesh_i.x, mesh_i.y+1),
-                              &mesh(0,mesh_i.x+1, mesh_i.y+1)
-  
-    
-    if (ray["y"] == center.y && (ray["x"] == center.x+1) && !reproj_error_calc_only) {
-      ceres::CostFunction* cost_function = KeepConstantCostF<2>::Create();
+  //artificially improve rank!
+  /*for(auto ray : Idx_It_Dims(proxy, "x", "cams")) {
+    double *l = &lines({0,ray.r("x","cams")});
+    if (problem.HasParameterBlock(l)) {
+      ceres::CostFunction*
+      cost_function = KeepParamConstError<2>::Create(0.001,l);
       problem.AddResidualBlock(cost_function, NULL,
-                              &lines({2,ray.r("x","cams")}));
+                              l);
+    }
+    l = &lines({2,ray.r("x","cams")});
+    if (problem.HasParameterBlock(l)) {
+      ceres::CostFunction*
+      cost_function = KeepParamConstError<2>::Create(0.001,l);
+      problem.AddResidualBlock(cost_function, NULL,
+                              l);
     }
   }*/
+  
+   //artificially improve rank!
+  /*for(auto ray : Idx_It_Dim(extrinsics, "views")) {
+    double *e = &extrinsics(ray);
+    if (!problem.HasParameterBlock(e))
+      continue;
+    ceres::CostFunction*
+    cost_function = KeepParamConstError<6>::Create(0.01,e);
+    problem.AddResidualBlock(cost_function, NULL,
+                             e);
+  }*/
+  
+  /*ceres::Solve(options, &problem, &summary);
   
   if ((flags & NON_CENTRAL) && !reproj_error_calc_only) {
     ceres::Covariance::Options c_options;
@@ -2254,9 +2293,10 @@ double solve_non_central_mesh(ceres::Solver::Options options, const Mat_<float>&
       double covariance_oo[2 * 2];
       covariance.GetCovarianceBlock(o, o, covariance_oo);
       
-      printf("%f %f --- %f %f\n", covariance_oo[0],covariance_oo[3], covariance_oo[1],covariance_oo[2]);
+      printf("%fx%f ", sqrt(covariance_oo[0]),sqrt(covariance_oo[3]));
     }
-  }
+    printf("\n");
+  }*/
 
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
@@ -2470,7 +2510,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<doubl
   //refine_pinhole_ispace(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   
   
-  Mat_<double> target_mesh({3, 20, 20});
+  Mat_<double> target_mesh({3, 40, 40});
   //FIXME target dimension * marker_size!
   cv::Point2i target_size(20,20);
   
