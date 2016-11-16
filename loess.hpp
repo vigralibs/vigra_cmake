@@ -66,7 +66,7 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
     int p_idx = 9;
     for(int j=0;j<y_degree;j++) {
       for(int i=0;i<x_degree;i++)
-        if (i > 1 || j > 1) {
+        if (i+j > 1) {
           res_x += p[p_idx++]*(yvar*xvars[i]);
           res_y += p[p_idx++]*(yvar*xvars[i]);
         }
@@ -82,11 +82,11 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double x, double y, double valx, double valy, double w) {
-    if (0 >  2 * x_degree*y_degree - 4)
+    if (0 >  2 * x_degree*y_degree - 3)
       return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9>(
       new PolyPers2dError(x, y, valx, valy, w)));
     else
-     return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+2*x_degree*y_degree-4>(
+     return (new ceres::AutoDiffCostFunction<PolyPers2dError, 2, 9+2*x_degree*y_degree-3>(
                 new PolyPers2dError(x, y, valx, valy, w)));
   }
 
@@ -267,7 +267,7 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
   int p_idx = 9;
   for(int j=0;j<y_degree;j++) {
     for(int i=0;i<x_degree;i++)
-      if (i > 1 || j > 1) {
+      if (i+j > 1) {
         res_x += coeffs[p_idx++]*(yvar*xvars[i]);
         res_y += coeffs[p_idx++]*(yvar*xvars[i]);
       }
@@ -279,7 +279,7 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
 
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, clif::Mat_<float> *J = NULL)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, clif::Mat_<float> *J = NULL, int mincount = 0)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
@@ -353,6 +353,9 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
                                 coeffs);
       }
       
+  if (mincount && w_sum < mincount)
+    return std::numeric_limits<double>::quiet_NaN();  
+      
   /*if (norm(wc*(1.0/w_sum)) >= 10.0) {
     printf("center is off by %f\n", norm(wc*(1.0/w_sum)));
     return std::numeric_limits<double>::quiet_NaN();  
@@ -372,7 +375,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   ceres::Solve(options, &problem, &summary);
   
   
-  /*int removed = 1;
+  int removed = 1;
   
   while (removed) {
     removed = 0;
@@ -423,7 +426,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
       ceres::Solve(options, &problem, &summary);
       //printf("removed %d of %d samples, rms: %f\n", ids.size()-summary.num_residual_blocks, ids.size() ,sqrt((summary.final_cost)/w_sum));
     }
-  }*/
+  }
   
   
   /*
@@ -463,12 +466,12 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   px = abs(coeffs[6]/coeffs[8]);
   py = abs(coeffs[7]/coeffs[8]);
   
-  if (std::max(px,py) > 0.0002)
-    return std::numeric_limits<double>::quiet_NaN();
+  /*if (std::max(px,py) > 0.0002)
+    return std::numeric_limits<double>::quiet_NaN();*/
   
   if (summary.termination_type == ceres::TerminationType::NO_CONVERGENCE){
-    //printf("no convergence\n");
-    //std::cout << summary.FullReport() << "\n";
+    printf("no convergence\n");
+    std::cout << summary.FullReport() << "\n";
     return std::numeric_limits<double>::quiet_NaN();  
   }
  
