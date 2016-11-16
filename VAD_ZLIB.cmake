@@ -68,6 +68,9 @@ function(vad_live)
     # The zlib build system does not correctly set the include path for its executables when zlib
     # is built as a sub project. Fix it by adding explicitly the missing path.
     function(_zlib_exec_fix_include_dir TRG)
+        if(NOT TARGET "${TRG}")
+            return()
+        endif()
         get_property(_include_dir TARGET ${TRG} PROPERTY INCLUDE_DIRECTORIES)
         list(APPEND _include_dir "${VAD_EXTERNAL_ROOT}/ZLIB")
         set_property(TARGET ${TRG} PROPERTY INCLUDE_DIRECTORIES ${_include_dir})
