@@ -6,7 +6,9 @@
 
 #include "loess.hpp"
 
-template<int x_degree, int y_degree> void proxy_backwards_poly_generate(clif::Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0, int minpoints = 0)
+namespace ucalib {
+  
+template<int x_degree, int y_degree> void proxy_backwards_poly_generate(Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0, int minpoints = 0)
 {
   int progress = 0;
   if (sigma == 0.0)
@@ -36,7 +38,7 @@ template<int x_degree, int y_degree> void proxy_backwards_poly_generate(clif::Ma
     }
 }
 
-template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(clif::Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0, int minpoints = 0, clif::Mat_<float> *J = NULL)
+template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0, int minpoints = 0, Mat_<float> *J = NULL)
 {
   int progress = 0;
   if (sigma == 0.0)
@@ -55,8 +57,8 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
       for(int x=0;x<proxy[1];x++) {
         int count;
         double xscale, yscale;
-        clif::Mat_<float> j_small;
-        clif::Mat_<float> *j_ptr = NULL;
+        Mat_<float> j_small;
+        Mat_<float> *j_ptr = NULL;
         if (J) {
           j_ptr = &j_small;
           j_small = J->bindAll(-1, -1, x, y);
@@ -78,8 +80,9 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(cli
     }
 }
 
-void proxy_backwards_poly_generate(clif::Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0);
+void proxy_backwards_poly_generate(Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0);
 
-void proxy_backwards_pers_poly_generate(clif::Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0);
+void proxy_backwards_pers_poly_generate(Mat_<float> &proxy, std::vector<cv::Point2f> img_points, std::vector<cv::Point3f> world_points, cv::Point2i idim, double sigma = 0.0);
 
+} //namespace ucalib
 #endif

@@ -32,8 +32,8 @@ int _calib_views_limit = 1000;
   #include <thread>
 #endif
 
-using namespace clif;
 using namespace std;
+using namespace MetaMat;
 
 cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f)
 {
@@ -45,7 +45,7 @@ cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f)
 
 
 
-void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f)
+void get_undist_map_for_depth(Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f)
 {
   cv::Point2i fdim(lines[1],lines[2]);
   
@@ -157,7 +157,7 @@ void get_undist_map_for_depth(clif::Mat_<double> lines, cv::Mat &map, double z, 
 
 namespace ucalib {
 
-void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, clif::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
+void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints)
 {  
   cv::Point2d f(cameraMatrix.at<double>(0,0), cameraMatrix.at<double>(1,1));
   
@@ -2762,7 +2762,7 @@ printf("\nsolving central camera with deformation ------------------------------
 
 #ifdef MM_MESH_WITH_VIEWER
   //glfwSetWindowShouldClose(_viewer->window, 1);
-  //FIXME add blocking exit method to clif::mesh
+  //FIXME add blocking exit method to mesh
   //viewer_thread.join();
 #endif
   printf("finished\n");

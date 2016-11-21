@@ -1,9 +1,16 @@
 #ifndef _LUTCALIB_LOESS_H
 #define _LUTCALIB_LOESS_H
 
+#include <metamat/mat.hpp>
+
 #include "ceres/ceres.h"
 #include "ceres/types.h"
 #include "opencv2/core/core.hpp"
+
+
+namespace ucalib {
+  
+  using namespace MetaMat;
 
 template <int x_degree, int y_degree> struct Poly2dError {
   Poly2dError(double x, double y, double val, double w)
@@ -279,7 +286,7 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
 
 //TODO ignore residuals after below a certine weight!
 //NOTE: z coordinate of wps is ignored (assumed to be constant - e.g. flat target)
-template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, clif::Mat_<float> *J = NULL, int mincount = 0)
+template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::Point2f> &ips, std::vector<cv::Point3f> &wps, cv::Point2d center, double *coeffs, double sigma, int *count = NULL, Mat_<float> *J = NULL, int mincount = 0)
 {
   ceres::Solver::Options options;
   options.max_num_iterations = 1000;
@@ -527,4 +534,6 @@ template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, 
       
   return cv::Point2f(res_x, res_y);
 }
+
+} //namespace ucalib
 #endif
