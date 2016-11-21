@@ -186,8 +186,8 @@ function(find_package_plus NAME)
   foreach(_NEWVAR ${_NEW_VARIABLES_${NAME}})
       list(FIND _OLD_VARIABLES_${NAME} "${_NEWVAR}" _NEWVARIDX)
       if(_NEWVARIDX EQUAL -1)
-          # New var was not found among the old ones. We check if it starts with
-          # ${NAME} (case insensitively), in which case we will add it to the cached variables.
+          # New var was not found among the old ones. We check if it is not an internal variable,
+          # in which case we will add it to the cached variables.
           string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
           if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package")
             # Make sure we don't store multiline strings in the cache, as that is not supported.
