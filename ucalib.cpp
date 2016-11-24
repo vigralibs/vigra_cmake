@@ -92,7 +92,7 @@ void get_undist_map_for_depth(Mat_<double> lines, cv::Mat &map, double z, cv::Po
   cv::Ptr<cv::ThinPlateSplineShapeTransformer> transform = cv::createThinPlateSplineShapeTransformer(0);
   transform->estimateTransformation(cv_wpoints, cv_ipoints, matches);
 
-  int approx_step = 8;
+  int approx_step = 16;
   
   printf("calc ipoints\n");
   int progress = 0;
@@ -595,7 +595,7 @@ struct LineZ3DirPinholeExtraError {
       : x_(x), y_(y), w_(w) {}
       
   template <typename T>
-  bool operator()(const T* const extr, const T* const extr_rel, const T* const line,
+  bool operator()(const T* const extr_cams, const T* const extr_views, const T* const line,
                   T* residuals) const {
                     
                     
@@ -603,20 +603,20 @@ struct LineZ3DirPinholeExtraError {
     w_p[0] = T(x_);
     w_p[1] = T(y_);
     w_p[2] = T(0);
-    ceres::AngleAxisRotatePoint(extr, w_p, p1);
+    ceres::AngleAxisRotatePoint(extr_views, w_p, p1);
 
     // camera[3,4,5] are the translation.
-    p1[0] += extr[3];
-    p1[1] += extr[4];
-    p1[2] += extr[5];
+    p1[0] += extr_views[3];
+    p1[1] += extr_views[4];
+    p1[2] += extr_views[5];
     
     
-    ceres::AngleAxisRotatePoint(extr_rel, p1, p);
+    ceres::AngleAxisRotatePoint(extr_cams, p1, p);
 
     // camera[3,4,5] are the translation.
-    p[0] += extr_rel[3];
-    p[1] += extr_rel[4];
-    p[2] += extr_rel[5];
+    p[0] += extr_cams[3];
+    p[1] += extr_cams[4];
+    p[2] += extr_cams[5];
     
     //compare with projected pinhole camera ray
     residuals[0] = (p[0] - p[2]*line[0])*T(w_);
@@ -1186,33 +1186,41 @@ static void _zline_problem_add_proj_error_4P(ceres::Problem &problem, Mat_<doubl
   }
 }
 
-static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2i img_size, const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &lines, Mat_<double> &proj, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth, double proj_weight = 1.0)
+struct calib_infos
+{
+  cv::Point2i img_size;
+  //proxy indices
+  int cams_min, cams_max;
+  int views_min, views_max;
+};
+
+static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &lines, Mat_<double> &proj, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth, double proj_weight = 1.0)
 {
   cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
   
-  double two_sigma_squared = 2.0*(img_size.x*img_size.x+img_size.y*img_size.y)*extr_center_size*extr_center_size;
+  double two_sigma_squared = 2.0*(i.img_size.x*i.img_size.x+i.img_size.y*i.img_size.y)*extr_center_size*extr_center_size;
   cv::Point2i proxy_size(lines["x"], lines["y"]);
   
   //channels == 0 && cams == 0
   int last_view = 0;
   int ray_count = 0;
-  for(auto ray : Idx_It_Dims(proxy, "x", "views")) {
+  for(auto ray : Idx_It_Dims(proxy, 1, -1)) {
     bool ref_cam = true;
     
-    if (ray["cams"] > _calib_cams_limit)
+    /*if (ray["cams"] > _calib_cams_limit)
       continue;
     if (ray["views"] > _calib_views_limit)
-      continue;
+      continue;*/
     
-    for(int i=proxy.dim("channels");i<=proxy.dim("cams");i++)
-      if (ray[i])
+    for(int j=i.cams_min;j<=i.cams_max;j++)
+      if (ray[j])
         ref_cam = false;
       
     cv::Point2f p(proxy({0,ray.r("x",-1)}),
                   proxy({1,ray.r("x",-1)}));
     
     
-    cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*img_size.y/proxy_size.y);
+    cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*i.img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*i.img_size.y/proxy_size.y);
 
     if (isnan(p.x) || isnan(p.y))
       continue;
@@ -1224,11 +1232,12 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
     else*/
       w = 1.0;
  
-    if (ray["views"] != last_view) {
+    //FIXME count rays?
+    /*if (ray["views"] != last_view) {
       printf("view %d: %d rays\n", last_view, ray_count);
       last_view = ray["views"];
       ray_count = 0;
-    }
+    }*/
     
     //keep center looking straight (in local ref system)
     /*if (ray["y"] == center.y && ray["x"] == center.x) {
@@ -1247,9 +1256,10 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
         LineZ3DirPinholeError::Create(ip.x, ip.y, p.x, p.y, w);
         problem.AddResidualBlock(cost_function,
                                 NULL,
-                                &extrinsics({0,ray["views"]}),
+                                //FIXME ray[0] should be zero right?
+                                &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
                                 //use only direction part!
-                                &lines({2,ray.r("x","cams")}));
+                                &lines({2,ray.r("x",i.cams_max)}));
         
         if (proj_weight) {
           double w_proj;
@@ -1263,13 +1273,13 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
             cost_function = RectProjError::Create(p, ip, w_proj);
             problem.AddResidualBlock(cost_function,
                                     NULL,
-                                    &extrinsics({0,ray["views"]}),
-                                    &proj(0,ray.r("channels","cams")));
+                                    &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
+                                    &proj(0,ray.r(i.cams_min,i.cams_max)));
             
-            problem.SetParameterLowerBound(&proj(0,ray.r("channels","cams")), 0, 100);
-            problem.SetParameterLowerBound(&proj(0,ray.r("channels","cams")), 1, 100);
-            problem.SetParameterUpperBound(&proj(0,ray.r("channels","cams")), 0, 10000);
-            problem.SetParameterUpperBound(&proj(0,ray.r("channels","cams")), 1, 10000);
+            problem.SetParameterLowerBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 100);
+            problem.SetParameterLowerBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 100);
+            problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 10000);
+            problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 10000);
           }
         }
       }
@@ -1278,9 +1288,10 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
         LineZ3DirPinholeExtraError::Create(p.x, p.y, w);
         problem.AddResidualBlock(cost_function,
                                 NULL,
-                                &extrinsics({0,ray["views"]}),&extrinsics_rel({0,ray.r("channels","cams")}),
+                                &extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}),
+                                &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
                                 //use only direction part!
-                                &lines({2,ray.r("x","cams")}));
+                                &lines({2,ray.r("x",i.cams_max)}));
         
         if (proj_weight) {
           double w_proj;
@@ -1289,13 +1300,14 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
             cost_function = RectProjExtraError::Create(p, ip, w_proj);
             problem.AddResidualBlock(cost_function,
                                       NULL,
-                                      &extrinsics({0,ray["views"]}),&extrinsics_rel({0,ray.r("channels","cams")}),
-                                      &proj(0,ray.r("channels","cams")));
+                                      &extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}),
+                                      &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
+                                      &proj(0,ray.r(i.cams_min,i.cams_max)));
           
-            problem.SetParameterLowerBound(&proj(0,ray.r("channels","cams")), 0, 100);
-            problem.SetParameterLowerBound(&proj(0,ray.r("channels","cams")), 1, 100);
-            problem.SetParameterUpperBound(&proj(0,ray.r("channels","cams")), 0, 10000);
-            problem.SetParameterUpperBound(&proj(0,ray.r("channels","cams")), 1, 10000);
+            problem.SetParameterLowerBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 100);
+            problem.SetParameterLowerBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 100);
+            problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 10000);
+            problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 10000);
           }
         }
         
@@ -1308,6 +1320,12 @@ static void _zline_problem_add_pinhole_lines(ceres::Problem &problem, cv::Point2
                                 &lines({2,ray.r("x","cams")}));*/
       }
       ray_count++;
+      
+      if (ray["y"] == center.y && ray["x"] == center.x) {
+        lines({2,ray.r("x","cams")}) = 0;
+        lines({3,ray.r("x","cams")}) = 0;
+        problem.SetParameterBlockConstant(&lines({2,ray.r("x",i.cams_max)}));
+      }
     }
   }
   printf("view %d: %d rays\n", last_view, ray_count);
@@ -1713,6 +1731,8 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
         j = j.clone();
         invert(j, j);
       }
+      else
+        j = cv::Mat::eye(2, 2, CV_64F);
       
       if (!reproj_error_calc_only) {
         //push model away from pinhole!
@@ -2083,15 +2103,15 @@ static void _add_find_center_errors(ceres::Problem &problem, Mat_<double> &lines
 }
 
 #ifdef MM_MESH_WITH_VIEWER
-void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsics_rel, Mat_<double> lines, Mat_<double> proj)
+void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics_cams, Mat_<double> extrinsics_views, Mat_<double> lines, Mat_<double> proj)
 {
   cams = mesh_cam().scale(20);
   
-  for(auto pos : Idx_It_Dims(extrinsics_rel,"channels","cams")) {
+  for(auto pos : Idx_It_Dims(extrinsics_cams,1,-1)) {
       //cv::Vec3b col(0,0,0);
       //col[ch%3]=255;
-      Eigen::Vector3d trans(extrinsics_rel(3,pos.r("channels","cams")),extrinsics_rel(4,pos.r("channels","cams")),extrinsics_rel(5,pos.r("channels","cams")));
-      Eigen::Vector3d rot(extrinsics_rel(0,pos.r("channels","cams")),extrinsics_rel(1,pos.r("channels","cams")),extrinsics_rel(2,pos.r("channels","cams")));
+      Eigen::Vector3d trans(extrinsics_cams(3,pos.r(1,-1)),extrinsics_cams(4,pos.r(1,-1)),extrinsics_cams(5,pos.r(1,-1)));
+      Eigen::Vector3d rot(extrinsics_cams(0,pos.r(1,-1)),extrinsics_cams(1,pos.r(1,-1)),extrinsics_cams(2,pos.r(1,-1)));
       
       Mesh cam = mesh_cam().scale(20);
       cam += trans;
@@ -2110,8 +2130,8 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
           continue;
         if (line_pos["y"] % 4 != 0)
           continue;*/
-        Eigen::Vector3d origin(lines({0,line_pos.r("x","y"),pos.r("channels","cams")}),lines({1,line_pos.r("x","y"),pos.r("channels","cams")}),0.0);
-        Eigen::Vector3d dir(lines({2,line_pos.r("x","y"),pos.r("channels","cams")}),lines({3,line_pos.r("x","y"),pos.r("channels","cams")}),-1.0);
+        Eigen::Vector3d origin(lines({0,line_pos.r("x","y"),pos.r(1,-1)}),lines({1,line_pos.r("x","y"),pos.r(1,-1)}),0.0);
+        Eigen::Vector3d dir(lines({2,line_pos.r("x","y"),pos.r(1,-1)}),lines({3,line_pos.r("x","y"),pos.r(1,-1)}),-1.0);
         
       
         Mesh line = mesh_line(origin,origin+dir*1000.0);
@@ -2127,9 +2147,9 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
     }
   //printf("\n");
   
-  for(auto pos : Idx_It_Dim(extrinsics, "views")) {
-      Eigen::Vector3d trans(extrinsics(3,pos["views"]),extrinsics(4,pos["views"]),extrinsics(5,pos["views"]));
-      Eigen::Vector3d rot(extrinsics(0,pos["views"]),extrinsics(1,pos["views"]),extrinsics(2,pos["views"]));
+  for(auto pos : Idx_It_Dims(extrinsics_views, 1, -1)) {
+      Eigen::Vector3d trans(extrinsics_views(3,pos.r(1,-1)),extrinsics_views(4,pos.r(1,-1)),extrinsics_views(5,pos.r(1,-1)));
+      Eigen::Vector3d rot(extrinsics_views(0,pos.r(1,-1)),extrinsics_views(1,pos.r(1,-1)),extrinsics_views(2,pos.r(1,-1)));
       
       Mesh plane = mesh_plane().scale(2000);
       
@@ -2146,15 +2166,15 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics, Mat_<double> extrinsi
 
 class _mesh_updater : public ceres::IterationCallback {
 public:
-explicit _mesh_updater(Mesh *mesh, Mat_<double> *extr, Mat_<double> *extr_rel, Mat_<double> *lines, Mat_<double> *proj) :
-_mesh(mesh), _extr(extr), _extr_rel(extr_rel), _lines(lines), _proj(proj)
+explicit _mesh_updater(Mesh *mesh, Mat_<double> *extr_cams, Mat_<double> *extr_views, Mat_<double> *lines, Mat_<double> *proj) :
+_mesh(mesh), _extr_cams(extr_cams), _extr_views(extr_views), _lines(lines), _proj(proj)
 {};
 
 ~_mesh_updater() {}
 
 virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary) {
   Mesh mesh_new;
-  update_cams_mesh(mesh_new, *_extr, *_extr_rel, *_lines, *_proj);
+  update_cams_mesh(mesh_new, *_extr_cams, *_extr_views, *_lines, *_proj);
   //trigger single viewer update
   *_mesh = mesh_new;
   
@@ -2162,8 +2182,8 @@ virtual ceres::CallbackReturnType operator()(const ceres::IterationSummary& summ
 }
 
 private:
-  Mat_<double> *_extr = NULL;
-  Mat_<double> *_extr_rel = NULL;
+  Mat_<double> *_extr_cams = NULL;
+  Mat_<double> *_extr_views = NULL;
   Mat_<double> *_lines = NULL;
   Mat_<double> *_proj = NULL;
   Mesh *_mesh = NULL;
@@ -2171,21 +2191,21 @@ private:
 #endif
 
 
-double solve_pinhole(const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
+double solve_pinhole(const calib_infos &i, const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
   double dir[3] = {0,0,0};
   
-  printf("target rot: %fx%fx%f\n", extrinsics(0), extrinsics(1), extrinsics(2));
-  _zline_problem_add_pinhole_lines(problem, img_size, proxy, extrinsics, extrinsics_rel, lines, proj, NULL, true, min_weight, proj_weight);
+  printf("target rot: %fx%fx%f\n", extrinsics_views(0), extrinsics_views(1), extrinsics_views(2));
+  _zline_problem_add_pinhole_lines(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, proj, NULL, true, min_weight, proj_weight);
   //if (proj_weight > 0.0)
     //_zline_problem_add_proj_error(problem, lines, img_size, proj, proj_weight, 0.0);
   //_zline_problem_add_lin_views(problem, extrinsics_rel, dir);
   
   printf("solving pinhole problem (proj w = %f...\n", proj_weight);
   ceres::Solve(options, &problem, &summary);
-  printf("target rot: %fx%fx%f (%p)\n", extrinsics(0), extrinsics(1), extrinsics(2), &extrinsics(0));
+  printf("target rot: %fx%fx%f (%p)\n", extrinsics_views(0), extrinsics_views(1), extrinsics_views(2), &extrinsics_views(0));
   //std::cout << summary.FullReport() << "\n";
   printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
   
@@ -2209,7 +2229,7 @@ double solve_non_central(const ceres::Solver::Options &options, const Mat_<float
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
-double solve_non_central_mesh(ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> proj, cv::Point2i target_size, Mat_<double> &mesh, bool reproj_error_calc_only = false, const Mat_<float> &scales = Mat_<float>(), int flags = 0)
+double solve_non_central_mesh(ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> proj, cv::Point2i target_size, Mat_<double> &mesh, bool reproj_error_calc_only = false, const Mat_<float> &scales = Mat_<float>(), int flags = 0)
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
@@ -2217,9 +2237,9 @@ double solve_non_central_mesh(ceres::Solver::Options options, const Mat_<float>&
   
   options.function_tolerance = 1e-20;
   
-  _zline_problem_add_generic_lines_mesh(problem, proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, mesh, reproj_error_calc_only, scales, flags);
+  //_zline_problem_add_generic_lines_mesh(problem, proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, mesh, reproj_error_calc_only, scales, flags);
   
-  problem.SetParameterization(&extrinsics(0,0), new ceres::SubsetParameterization(6,{5}));
+  //problem.SetParameterization(&extrinsics(0,0), new ceres::SubsetParameterization(6,{5}));
   //problem.SetParameterBlockConstant(&extrinsics(0,0));
   
   if (reproj_error_calc_only)
@@ -2367,8 +2387,17 @@ int filter_pinhole(const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i im
  *  - per image camera movement (world rotation and translation)
  *  - individual lines (which do not need to converge in an optical center
  */
-double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj, bool vis, const Mat_<float>& j)
+double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, bool vis, const Mat_<float>& j)
 {
+  calib_infos i;
+  
+  i.img_size = img_size;
+  i.cams_min = 3;
+  //FIXME REWORK do this with dimspec
+  i.cams_max = proxy.dim("views")-1;
+  i.views_min = proxy.dim("views");
+  i.views_max = proxy.size()-1;
+  
   ceres::Solver::Options options;
   options.max_num_iterations = 500;
   //options.function_tolerance = 1e-10;
@@ -2378,10 +2407,11 @@ double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<doubl
   
   options.minimizer_progress_to_stdout = true;
   
-  lines.create({IR(4, "line"), proxy.r("x", "cams")});
-  extrinsics.create({IR(6, "extrinsics"), IR(proxy["views"], "views")});
-  cout << "extrinsics: " << extrinsics << "\n";
-  extrinsics_rel.create({IR(6, "extrinsics"), proxy.r("channels","cams")});
+  lines.create({IR(4, "line"), proxy.r(1, i.cams_max)});
+  extrinsics_cams.create({IR(6, "extrinsics"), proxy.r(i.cams_min, i.cams_max)});
+  cout << "extrinsics_cams: " << extrinsics_cams << "\n";
+  extrinsics_views.create({IR(6, "extrinsics"), proxy.r(i.views_min,i.views_max)});
+  cout << "extrinsics_views: " << extrinsics_views << "\n";
   
   //for threading!
   //options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -2393,30 +2423,20 @@ double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<doubl
   options.num_threads = 8;
   options.num_linear_solver_threads = 8;
   
-  Mat_<double> r({proxy.r("channels","cams")});
-  Mat_<double> m({2, proxy.r("channels","cams")});
+  proj.create({2,proxy.r(i.cams_min,i.cams_max)});
   
-  proj.create({2,proxy.r("channels","cams")});
-  
-  for(auto pos : Idx_It_Dims(r, 0, -1))
-    r(pos) = 0;
-  for(auto pos : Idx_It_Dims(m, 0, -1))
-    m(pos) = 0;
   for(auto pos : Idx_It_Dims(proj, 0, -1))
     proj(pos) = 1000;
   
-  for(auto cam_pos : Idx_It_Dim(extrinsics, "views")) {
+  for(auto cam_pos : Idx_It_Dims(extrinsics_views, 1, -1)) {
     for(int i=0;i<5;i++)
-      extrinsics({i, cam_pos["views"]}) = 0;
-    extrinsics({5, cam_pos["views"]}) = 1000;
+      extrinsics_views({i, cam_pos.r(1,-1)}) = 0;
+    extrinsics_views({5, cam_pos.r(1,-1)}) = 1000;
     //extrinsics({2, cam_pos["views"]}) = M_PI*0.5;
   }
 
-  for(auto pos : Idx_It_Dims(extrinsics_rel, 0, -1))
-    extrinsics_rel(pos) = 0;
-  
-  //for(auto pos : Idx_It_Dims(extrinsics_rel, 1, -1))
-    //extrinsics_rel({3,pos.r(1,-1)}) = -50*pos["cams"];
+  for(auto pos : Idx_It_Dims(extrinsics_cams, 0, -1))
+    extrinsics_cams(pos) = 0;
   
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     lines({0, line_pos.r(1,-1)}) = 0;
@@ -2425,95 +2445,45 @@ double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<doubl
     lines({3, line_pos.r(1,-1)}) = 0.01;
   }
   
-  if (proxy["views"] > 1) {
+  /*if (proxy["views"] > 1) {
     printf("%f x %f \n", proxy(0, 0, 0, 0, 0, 0),proxy(1, 0, 0, 0, 0, 0));
     printf("%f x %f \n", proxy(0, 0, 0, 0, 0, 1),proxy(1, 0, 0, 0, 0, 1));
-  }
+  }*/
   
   //mesh display
 #ifdef MM_MESH_WITH_VIEWER 
   Mesh *mesh = new Mesh();
-  _mesh_updater callback(mesh, &extrinsics, &extrinsics_rel, &lines, &proj);
+  _mesh_updater callback(mesh, &extrinsics_cams, &extrinsics_views, &lines, &proj);
     
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true;
   
-  update_cams_mesh(*mesh, extrinsics, extrinsics_rel, lines, proj);
+  update_cams_mesh(*mesh, extrinsics_cams, extrinsics_views, lines, proj);
     
   if (vis)
     mesh->show(false);
   
 #endif
 
-  
-  
-  /*ceres::Solver::Summary summary;
-  ceres::Problem problem;
-  
-  _zline_problem_add_pinhole_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
-  _zline_problem_add_proj_error(problem, lines, img_size, proj, strong_proj_constr_weight);
-  
-  printf("solving pinhole problem (strong projection)...\n");
-  ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << "\n";
-  printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));*/
-  
-  /*int filtered = 1;
-  while (filtered) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight);
-    filtered = filter_pinhole(proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.2);
-  }
-  filtered = 1;
-  while (filtered) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, proj_constr_weight);
-    filtered = filter_pinhole(proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.2);
-  }
-  filtered = 1;
-  while (filtered) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0);
-    filtered = filter_pinhole(proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.2);
-  }*/
-  
-  /*_calib_views_limit = 0;
-  _calib_cams_limit = 0;
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  return 0.0;*/
-  
   //FIXME first selection of views MUST contain center line(s)
   
-  options.max_num_iterations = 100;
+  /*options.max_num_iterations = 100;
   _calib_cams_limit = 0;
   for(_calib_views_limit=proxy["views"]/2;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(int(_calib_views_limit)+1,proxy["views"])) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
+    solve_pinhole(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
   }
-  if (proxy["views"] > 1) 
+  if (proxy["views"] > 1) */
     options.max_num_iterations = 5000;
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, proj_constr_weight, non_center_rest_weigth);
+  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
+  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, proj_constr_weight, non_center_rest_weigth);
   
-  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 1.0, non_center_rest_weigth);
   
-  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, proj_constr_weight, non_center_rest_weigth);
   
-  /*options.max_num_iterations = 5000;
-  _calib_cams_limit=0;
-  for(_calib_cams_limit=0;_calib_cams_limit<proxy["cams"];_calib_cams_limit=std::min(int(_calib_cams_limit*1.5)+1,proxy["cams"])) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  }*/
-  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, 0.0);
   
-  /*int filtered = 1;
-  while (filtered) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, strong_proj_constr_weight, non_center_rest_weigth);
-    filtered = filter_pinhole(proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.2);
-  }*/
-  //solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   //options.function_tolerance = 1e-20;
   //options.minimizer_progress_to_stdout = true;
   //FIXME disable until we port extrinsics constraint (center ray == 0) back to it
   options.max_num_iterations = 5000;
-  //refine_pinhole_ispace(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0.0, non_center_rest_weigth);
   
   
   Mat_<double> target_mesh({3, 40, 40});
@@ -2530,13 +2500,33 @@ double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<doubl
   target_mesh(2,0,1) = 0;
   
   
-  solve_pinhole(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, 0, 0);
-  printf("pinhole rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
+  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
   
-  solve_non_central(options, proxy, lines, img_size, extrinsics, extrinsics_rel);
+  delete mesh;
+  
+  for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
+    if (lines({0, line_pos.r(1,-1)}) == 0 &&
+        lines({1, line_pos.r(1,-1)}) == 0 &&
+        lines({2, line_pos.r(1,-1)}) == 0.01 &&
+        lines({3, line_pos.r(1,-1)}) == 0.01) {
+          lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+        }
+  }
+  
+  
+  
+  return 0.0;
+  
+  
+  /*printf("pinhole rms:\n");
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, true, j);
+  
+  solve_non_central(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views);
   printf("non-central rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, true, j);
   
 printf("\nsolving central camera with deformation ------------------------------------\n\n");
   
@@ -2553,42 +2543,42 @@ printf("\nsolving central camera with deformation ------------------------------
   
 
   //cvMat(target_mesh).setTo(double(target_size.x)/target_mesh[1]);
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, j, solve_flags);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, false, j, solve_flags);
   printf("deformation rms:\n");
   
   double res_avg;
   int filtered = 1;
   
   while (filtered) {
-    res_avg = calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j);
-    calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j, res_avg, &filtered);
+    res_avg = calc_line_residuals(proxy, extrinsics_cams, extrinsics_views, proj, lines, img_size, target_size, target_mesh, j);
+    calc_line_residuals(proxy, extrinsics_cams, extrinsics_views, proj, lines, img_size, target_size, target_mesh, j, res_avg, &filtered);
     if (filtered) {
       //cvMat(target_mesh).setTo(double(target_size.x)/target_mesh[1]);
-      solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, j, solve_flags);
+      solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, false, j, solve_flags);
     }
   }
   
   printf("final central rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j, solve_flags);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, true, j, solve_flags);
   
   //////////7
-  /*Mat_<std::vector<cv::Point2f>> res_m_central({proxy.r("x","y")});
-  calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j, 0, NULL, &res_m_central);
-  
-  Mat_<std::vector<float>> res_l_c({proxy.r("x","y")});
-  for(auto pos : Idx_It_Dims(res_m, 0, 1)) {
-    
-    int x = pos["x"];
-    int y = pos["y"];
-    std::vector<cv::Point2f> &ps = res_m(pos);
-    
-
-    
-    float avg = 0;
-    for(auto d : ps)
-      avg += norm(d);
-    res_l_c(x,y) = sqrt(avg/ps.size());
-  }*/
+//   Mat_<std::vector<cv::Point2f>> res_m_central({proxy.r("x","y")});
+//   calc_line_residuals(proxy, extrinsics_cams, extrinsics_views, proj, lines, img_size, target_size, target_mesh, j, 0, NULL, &res_m_central);
+//   
+//   Mat_<std::vector<float>> res_l_c({proxy.r("x","y")});
+//   for(auto pos : Idx_It_Dims(res_m, 0, 1)) {
+//     
+//     int x = pos["x"];
+//     int y = pos["y"];
+//     std::vector<cv::Point2f> &ps = res_m(pos);
+//     
+// 
+//     
+//     float avg = 0;
+//     for(auto d : ps)
+//       avg += norm(d);
+//     res_l_c(x,y) = sqrt(avg/ps.size());
+//   }
   //save_mat("err_residuals_central.clif", res_l_c);
   
   
@@ -2605,25 +2595,25 @@ printf("\nsolving central camera with deformation ------------------------------
   
 
   //cvMat(target_mesh).setTo(double(target_size.x)/target_mesh[1]);
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, j, solve_flags);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, false, j, solve_flags);
   printf("deformation rms:\n");
   
   filtered = 1;
   
   while (filtered) {
-    res_avg = calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j);
-    calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j, res_avg, &filtered);
+    res_avg = calc_line_residuals(proxy, extrinsics_cams, extrinsics_views, proj, lines, img_size, target_size, target_mesh, j);
+    calc_line_residuals(proxy, extrinsics_cams, extrinsics_views, proj, lines, img_size, target_size, target_mesh, j, res_avg, &filtered);
     if (filtered) {
       //cvMat(target_mesh).setTo(double(target_size.x)/target_mesh[1]);
-      solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, false, j, solve_flags);
+      solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, false, j, solve_flags);
     }
   }
   
   printf("final central rms:\n");
-  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j, solve_flags);
+  solve_non_central_mesh(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, true, j, solve_flags);
   
   Mat_<std::vector<cv::Point2f>> res_m({proxy.r("x","y")});
-  calc_line_residuals(proxy, extrinsics, extrinsics_rel, proj, lines, img_size, target_size, target_mesh, j, 0, NULL, &res_m);
+  calc_line_residuals(proxy, extrinsics_cams, extrinsics_views, proj, lines, img_size, target_size, target_mesh, j, 0, NULL, &res_m);
   cv::Mat debug_dirs(img_size, CV_8UC3, cv::Scalar(0));
   
   Mat_<float> res_l({proxy.r("x","y")});
@@ -2635,23 +2625,23 @@ printf("\nsolving central camera with deformation ------------------------------
     cv::Point2f ip = cv::Point2f((x+0.5)/fdim.x*img_size.x, (y+0.5)/fdim.y*img_size.y);
     std::vector<cv::Point2f> &ps = res_m(pos);
     
-    /*if (ps.size()) {
-      for(auto d : ps) {
-        printf("draw: %d %d : %d %fx%f %fx%f\n",x,y,ps.size(),ip.x, ip.y,100*d.x, 100*d.y);
-        if (d.x != 0.0)
-          break;
-      }
-    }*/
+//     if (ps.size()) {
+//       for(auto d : ps) {
+//         printf("draw: %d %d : %d %fx%f %fx%f\n",x,y,ps.size(),ip.x, ip.y,100*d.x, 100*d.y);
+//         if (d.x != 0.0)
+//           break;
+//       }
+//     }
     
     float avg = 0;
     for(auto d : ps) {
       cv::line(debug_dirs, ip, ip+100*d, CV_RGB(255,255,255), 1, CV_AA);
       avg += d.x*d.x+d.y*d.y;
     }
-    /*res_l(x,y) = sqrt(avg/ps.size());
-    if (x == 0)
-      printf("\n");
-    printf("%0.3f ", res_l(x,y));*/
+//     res_l(x,y) = sqrt(avg/ps.size());
+//     if (x == 0)
+//       printf("\n");
+//     printf("%0.3f ", res_l(x,y));
   }
   printf("\n");
   //save_mat("err_residuals.clif", res_l);
@@ -2660,7 +2650,7 @@ printf("\nsolving central camera with deformation ------------------------------
   imwrite("debug_reproj_dirs.tif", debug_dirs);
   
   
-  correct_cam_center(options, proxy, lines, img_size, extrinsics, extrinsics_rel, proj, target_size, target_mesh, true, j);
+  correct_cam_center(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, target_size, target_mesh, true, j);
 
   printf("proj last: %f %f\n", proj(0), proj(1));
   
@@ -2711,54 +2701,10 @@ printf("\nsolving central camera with deformation ------------------------------
   if (vis)
     line_mesh.show(true);
   
-  line_mesh.writeOBJ("center.obj");
+  line_mesh.writeOBJ("center.obj");*/
   
   
   //_zline_problem_eval_pinhole_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
-  
-  /*ceres::Problem problem2;
-  
-  _zline_problem_add_pinhole_lines(problem2, proxy, extrinsics, extrinsics_rel, lines);
-  _zline_problem_add_proj_error(problem2, lines, img_size, proj, proj_constr_weight);
-  
-  printf("solving pinhole problem (weak projection)...\n");
-  ceres::Solve(options, &problem2, &summary);
-  std::cout << summary.FullReport() << "\n";
-  printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem2.NumResiduals()));
-  
-  printf("proj %fx%f, move %fx%f\n", proj[0], proj[1], m[0], m[1]);
-  
-  std::cout << summary.FullReport() << "\n";
-  
-  printf("rms: %f\n",2.0*sqrt(summary.final_cost/problem.NumResiduals()));
-  
-  //return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
-  
-  ///////////////////////////////////////////////
-  //full problem
-  ///////////////////////////////////////////////
-  options.max_num_iterations = 5000;
-  options.function_tolerance = 1e-12;
-  options.parameter_tolerance = 1e-12;
-  
-  ceres::Problem problem_full;
-  
-  _zline_problem_add_generic_lines(problem_full, proxy, extrinsics, extrinsics_rel, lines);
-  _zline_problem_add_center_errors(problem_full, lines);
-  _zline_problem_add_proj_error_4P(problem_full, lines, img_size, proj, proj_constr_weight);
-  
-  printf("solving constrained generic problem...\n");
-  ceres::Solve(options, &problem_full, &summary);
-  std::cout << summary.FullReport() << "\n";
-  printf("\nunconstrained rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem_full.NumResiduals()));
-  
-  options.max_num_iterations = 0;
-  ceres::Problem problem_reproj;
-  _zline_problem_add_generic_lines(problem_reproj, proxy, extrinsics, extrinsics_rel, lines, true);
-  
-  ceres::Solve(options, &problem_reproj, &summary);
-  
-  printf("\nunconstrained rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem_reproj.NumResiduals()));*/
 
 #ifdef MM_MESH_WITH_VIEWER
   //glfwSetWindowShouldClose(_viewer->window, 1);
@@ -2768,4 +2714,237 @@ printf("\nsolving central camera with deformation ------------------------------
   printf("finished\n");
 
   return 0.0;
+}
+
+namespace ucalib {
+ 
+  //TODO hide?
+  class RayCam : public Cam {
+  public:
+    virtual void projectPoints(const std::vector<cv::Point3f> &wpoints, std::vector<cv::Point2f> &ipoints);
+    virtual cv::Vec3d r() const;
+    virtual cv::Vec3d t() const;
+    virtual cv::Point2d f() const;
+    friend class RayCalib;
+  private:
+    RayCalib *_calib;
+    Idx _view;
+    Idx _cam;
+    /*double fx, fy;
+    double rms;
+    Mat_<double> lines;*/
+    
+    //cv::Matx31d r, t;
+  };
+  
+  Cam *RayCalib::cam(const Idx &cam)
+  {
+    return NULL;
+  }
+  
+  Cam *RayCalib::cam(const Idx &cam, const Idx &view)
+  {
+    RayCam *c = new RayCam();
+    
+    c->_cam = cam;
+    c->_view = view;
+    c->_calib = this;
+    
+    return c;
+  }
+  
+  const Mat_<double> &RayCalib::extrinsics_cams()
+  {
+    return _cams;
+  }
+  
+  const Mat_<double> &RayCalib::extrinsics_views()
+  {
+    return _views;
+  }
+  
+  const Mat_<double> &RayCalib::proj()
+  {
+    return _proj;
+  }
+  
+  const Mat_<double> &RayCalib::rays()
+  {
+    return _rays;
+  }
+  
+  const Cam *Calib::ref_cam() const
+  {
+    return _ref_cam;
+  }
+  void Calib::set_ref_cam(const Cam *cam)
+  {
+    _ref_cam = cam;
+  }
+  
+  cv::Size RayCalib::img_size() const
+  {
+    return _img_size;
+  }
+  
+  cv::Point2d RayCam::f() const
+  {
+    return cv::Point2d(_calib->_proj({0,_cam.r(1,-1)}),
+                       _calib->_proj({0,_cam.r(1,-1)}));
+  }
+  
+  void RayCam::projectPoints(const std::vector<cv::Point3f> &wpoints, std::vector<cv::Point2f> &ipoints)
+  {}
+  cv::Vec3d RayCam::r() const
+  {
+    cv::Vec3d r_v(_calib->_views({0,_view.r(1,-1)}),
+                  _calib->_views({1,_view.r(1,-1)}),
+                  _calib->_views({2,_view.r(1,-1)}));
+    /*cv::Vec3d t_v(_calib->_views({3,_view.r(1,-1)),
+                  _calib->_views({4,_view.r(1,-1)),
+                  _calib->_views({5,_view.r(1,-1)));*/
+    cv::Matx33d r_v_m;
+    cv::Rodrigues(r_v, r_v_m);
+      
+    cv::Vec3d r_c(_calib->_cams({0,_cam.r(1,-1)}),
+                  _calib->_cams({1,_cam.r(1,-1)}),
+                  _calib->_cams({2,_cam.r(1,-1)}));
+    /*cv::Vec3d t_c(_calib->_cams({3,_cam.r(1,-1)}),
+                  _calib->_cams({4,_cam.r(1,-1)}),
+                  _calib->_cams({5,_cam.r(1,-1)}));*/
+    cv::Matx33d r_c_m;
+    cv::Rodrigues(r_c, r_c_m);
+    
+    cv::Matx33d r_m = r_c_m*r_v_m;
+    cv::Vec3d r;
+    cv::Rodrigues(r_m, r);
+    
+    cout << "ref r :" << r_v << r_c << "=" << r << "\n";
+    
+    return r;    
+  }
+  cv::Vec3d RayCam::t() const
+  {
+    /*cv::Vec3d r_v(_calib->_views({0,_view.r(1,-1)}),
+                  _calib->_views({1,_view.r(1,-1)}),
+                  _calib->_views({2,_view.r(1,-1)}));*/
+    cv::Vec3d t_v(_calib->_views({3,_view.r(1,-1)}),
+                  _calib->_views({4,_view.r(1,-1)}),
+                  _calib->_views({5,_view.r(1,-1)}));
+    //Matx33d r_v_m;
+    //cv::Rodrigues(r_v, r_v_m);
+      
+    cv::Vec3d r_c(_calib->_cams({0,_cam.r(1,-1)}),
+                  _calib->_cams({1,_cam.r(1,-1)}),
+                  _calib->_cams({2,_cam.r(1,-1)}));
+    cv::Vec3d t_c(_calib->_cams({3,_cam.r(1,-1)}),
+                  _calib->_cams({4,_cam.r(1,-1)}),
+                  _calib->_cams({5,_cam.r(1,-1)}));
+    cv::Matx33d r_c_m;
+    cv::Rodrigues(r_c, r_c_m);
+    
+    cv::Vec3d t = r_c_m*t_v + t_c;
+    
+    return t;   
+  }
+
+  RayCalib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start)
+  {
+    RayCalib *c = new RayCalib();
+    
+    c->_img_size = img_size;
+    
+    fit_cams_lines_multi(proxy, img_size, c->_rays, c->_cams, c->_views, c->_proj, true, Mat_<double>());
+    
+    return c;
+  }
+  
+  RayCalib* calibrate_rays(Mat_<float> &proxy, Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start)
+  {
+    RayCalib *c = new RayCalib();
+    
+    fit_cams_lines_multi(proxy, img_size, c->_rays, c->_cams, c->_views, c->_proj, true, j);
+    
+    return c;
+  }
+  
+  
+  RayCalib::RayCalib(Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &rays, cv::Point2i img_size)
+  {
+    _cams = extrinsics_cams;
+    _views = extrinsics_views;
+    _proj = proj;
+    _rays = rays;
+    _img_size = img_size;
+  }
+  
+  //FIXME correctly handle view idx as position in either/or/both cams,views
+  void RayCalib::rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const
+  {
+    printf("do rectification!\n");
+    
+    Mat_<double> rect_rays({4,_rays.r(1,2)});
+    cv::Mat map;
+    
+    //this cam rotation
+    //FIXME combine cam and view extrinsics!?!
+    cv::Matx31d r(-_views({0,view_idx.r(1,-1)}),
+                  -_views({1,view_idx.r(1,-1)}),
+                  -_views({2,view_idx.r(1,-1)}));
+    cv::Matx31d t(-_views({3,view_idx.r(1,-1)}),
+                  -_views({4,view_idx.r(1,-1)}),
+                  -_views({5,view_idx.r(1,-1)}));
+    cv::Matx33d r_m;
+    cv::Rodrigues(r, r_m);
+    
+    cv::Matx31d ref_r = _ref_cam->r();
+    cv::Matx31d ref_t = _ref_cam->t();
+    cv::Matx33d ref_r_m;
+    cv::Rodrigues(ref_r, ref_r_m);
+    
+    for(auto pos : Idx_It_Dims(_rays, 1, 2)) {
+      //STEP 1 move lines into reference cam reference frame
+      
+      //FIXME what if there are no more cams?
+      cv::Matx31d offset(_rays({0, pos.r(1,2), pos.r(3,-1)}),
+                         _rays({1, pos.r(1,2), pos.r(3,-1)}),
+                         0.0);
+      cv::Matx31d dir(_rays({2, pos.r(1,2), pos.r(3,-1)}),
+                      _rays({3, pos.r(1,2), pos.r(3,-1)}),
+                      1.0);
+    
+      //revert cam translation to calibration origin (first cam) 
+      /*offset += t;
+      //invert cam rotation and apply center cam rotation
+      offset = ref_r_m * r_m * offset;
+      
+      //apply reference cam translation
+      offset += ref_t;
+      
+      //direction is only rotated
+      dir = ref_r_m*r_m*dir;
+      
+      //normalize
+      dir *= 1.0/dir(2);
+      offset -= offset(2)*dir;*/
+      
+      rect_rays({0, pos.r(1,2)}) = offset(0);
+      rect_rays({1, pos.r(1,2)}) = offset(1);
+      
+      rect_rays({2, pos.r(1,2)}) = dir(0);
+      rect_rays({3, pos.r(1,2)}) = dir(1);
+      
+      if (pos[1] == _rays[1]/2 && pos[2] == _rays[2]/2)
+        cout << pos << dir << "\n"; 
+    }
+    
+    cout << "ref f: "<< _ref_cam->f() << r << t << ref_r << ref_t << ref_r_m*r_m <<  t+ref_t << "\n" << _img_size << "\nz: " << z << "\n";
+    
+    //STEP 2 calculate undist map for cam at depth
+    map.create(src[1],src[0],CV_32FC2);
+    get_undist_map_for_depth(rect_rays, map, z, _img_size, _ref_cam->f());
+    
+    //STEP 3 warp
+    remap(cvMat(src), cvMat(dst), map, cv::noArray(), cv::INTER_LINEAR);
+  }
 }
