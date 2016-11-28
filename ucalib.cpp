@@ -1206,6 +1206,7 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
   int ray_count = 0;
   for(auto ray : Idx_It_Dims(proxy, 1, -1)) {
     bool ref_cam = true;
+      
     
     /*if (ray["cams"] > _calib_cams_limit)
       continue;
@@ -1216,15 +1217,19 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
       if (ray[j])
         ref_cam = false;
       
+      
     cv::Point2f p(proxy({0,ray.r("x",-1)}),
                   proxy({1,ray.r("x",-1)}));
     
     
     cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*i.img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*i.img_size.y/proxy_size.y);
 
+    if (ray["y"] == center.y && ray["x"] == center.x)
+      cout << ref_cam << ray << p << &proxy({0,ray.r("x",-1)}) << "\n";
+    
     if (isnan(p.x) || isnan(p.y))
       continue;
-    
+        
     double w;
     
     /*if (falloff)
@@ -1252,6 +1257,12 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
       if (ref_cam) {
         //std::cout << "process: " << ray << p << "\n";
         //regular line error (in x/y world direction)
+        
+        
+        if (ray["y"] == center.y && ray["x"] == center.x) {
+          cout << &extrinsics_views({0,ray.r(i.views_min,i.views_max)}) << p << ray << "\n";
+        }
+        
         ceres::CostFunction* cost_function = 
         LineZ3DirPinholeError::Create(ip.x, ip.y, p.x, p.y, w);
         problem.AddResidualBlock(cost_function,
@@ -1322,13 +1333,14 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
       ray_count++;
       
       if (ray["y"] == center.y && ray["x"] == center.x) {
-        lines({2,ray.r("x","cams")}) = 0;
-        lines({3,ray.r("x","cams")}) = 0;
+        lines({2,ray.r(1,i.cams_max)}) = 0;
+        lines({3,ray.r(1,i.cams_max)}) = 0;
         problem.SetParameterBlockConstant(&lines({2,ray.r("x",i.cams_max)}));
       }
     }
   }
   printf("view %d: %d rays\n", last_view, ray_count);
+  //exit(0);
 }
 
 
@@ -2153,7 +2165,7 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics_cams, Mat_<double> ext
       
       Mesh plane = mesh_plane().scale(2000);
       
-      //printf("trans %d %fx%fx%f\n", pos["views"], trans(0), trans(1), trans(2));
+      cout << pos; printf("trans %fx%fx%f\n", trans(0), trans(1), trans(2));
       
       plane -= trans;
       plane.rotate(-rot);
@@ -2387,15 +2399,15 @@ int filter_pinhole(const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i im
  *  - per image camera movement (world rotation and translation)
  *  - individual lines (which do not need to converge in an optical center
  */
-double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, bool vis, const Mat_<float>& j)
+double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, bool vis, const Mat_<float>& j)
 {
   calib_infos i;
   
   i.img_size = img_size;
   i.cams_min = 3;
   //FIXME REWORK do this with dimspec
-  i.cams_max = proxy.dim("views")-1;
-  i.views_min = proxy.dim("views");
+  i.cams_max = first_view_dim-1;
+  i.views_min = first_view_dim;
   i.views_max = proxy.size()-1;
   
   ceres::Solver::Options options;
@@ -2412,6 +2424,8 @@ double fit_cams_lines_multi(Mat_<float> &proxy, cv::Point2i img_size, Mat_<doubl
   cout << "extrinsics_cams: " << extrinsics_cams << "\n";
   extrinsics_views.create({IR(6, "extrinsics"), proxy.r(i.views_min,i.views_max)});
   cout << "extrinsics_views: " << extrinsics_views << "\n";
+  
+  printf("calibrate with %d views of %d cams\n", extrinsics_views.total()/6, extrinsics_cams.total()/6);
   
   //for threading!
   //options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -2849,21 +2863,19 @@ namespace ucalib {
   }
 
   RayCalib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start)
-  {
-    RayCalib *c = new RayCalib();
-    
-    c->_img_size = img_size;
-    
-    fit_cams_lines_multi(proxy, img_size, c->_rays, c->_cams, c->_views, c->_proj, true, Mat_<double>());
-    
-    return c;
+  {    
+    return calibrate_rays(proxy, Mat_<double>(), img_size, views_dims_start);
   }
   
-  RayCalib* calibrate_rays(Mat_<float> &proxy, Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start)
+  RayCalib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start)
   {
     RayCalib *c = new RayCalib();
     
-    fit_cams_lines_multi(proxy, img_size, c->_rays, c->_cams, c->_views, c->_proj, true, j);
+    int v_start = views_dims_start.get(proxy);
+    
+    printf("view start dim: %d\n", v_start);
+    
+    fit_cams_lines_multi(proxy, v_start, img_size, c->_rays, c->_cams, c->_views, c->_proj, true, j);
     
     return c;
   }

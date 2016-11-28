@@ -9,7 +9,7 @@ void get_undist_map_for_depth(MetaMat::Mat_<double> lines, cv::Mat &map, double 
 //needs!
 //proxy.names({"point","x","y","channels","cams","views"});
 //lines.names({"line","x","y","channels","cams"})
-double fit_cams_lines_multi(MetaMat::Mat_<float>& proxy, cv::Point2i img_size, MetaMat::Mat_<double> &lines, MetaMat::Mat_<double> &extrinsics, MetaMat::Mat_<double> &extrinsics_rel, MetaMat::Mat_<double> &proj, bool vis = false, const MetaMat::Mat_<float>& scales = MetaMat::Mat_<float>());
+//double fit_cams_lines_multi(MetaMat::Mat_<float>& proxy, cv::Point2i img_size, MetaMat::Mat_<double> &lines, MetaMat::Mat_<double> &extrinsics, MetaMat::Mat_<double> &extrinsics_rel, MetaMat::Mat_<double> &proj, bool vis = false, const MetaMat::Mat_<float>& scales = MetaMat::Mat_<float>());
 
 namespace ucalib {
   
@@ -76,8 +76,7 @@ namespace ucalib {
     
     virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
     
-    friend RayCalib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start);
-    friend RayCalib* calibrate_rays(Mat_<float> &proxy, Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
+    friend RayCalib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
     friend class RayCam;
   private:
     cv::Point2i _img_size;
@@ -93,7 +92,7 @@ namespace ucalib {
   */
 
   RayCalib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start = DimSpec(-1));
-  RayCalib* calibrate_rays(Mat_<float> &proxy, Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
+  RayCalib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
 
 }
 
