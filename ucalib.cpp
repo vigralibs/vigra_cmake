@@ -2741,7 +2741,7 @@ namespace ucalib {
     virtual cv::Point2d f() const;
     friend class RayCalib;
   private:
-    RayCalib *_calib;
+    const RayCalib *_calib;
     Idx _view;
     Idx _cam;
     /*double fx, fy;
@@ -2751,12 +2751,18 @@ namespace ucalib {
     //cv::Matx31d r, t;
   };
   
-  Cam *RayCalib::cam(const Idx &cam)
+  Cam *RayCalib::cam(const Idx &cam) const
   {
-    return NULL;
+    RayCam *c = new RayCam();
+    
+    c->_cam = {cam.r(0, _cams.size()-2)};
+    c->_view = {cam.r(_cams.size()-1, -1)};
+    c->_calib = this;
+    
+    return c;
   }
   
-  Cam *RayCalib::cam(const Idx &cam, const Idx &view)
+  Cam *RayCalib::cam(const Idx &cam, const Idx &view) const
   {
     RayCam *c = new RayCam();
     
@@ -2809,20 +2815,21 @@ namespace ucalib {
   
   void RayCam::projectPoints(const std::vector<cv::Point3f> &wpoints, std::vector<cv::Point2f> &ipoints)
   {}
+  
   cv::Vec3d RayCam::r() const
   {
-    cv::Vec3d r_v(_calib->_views({0,_view.r(1,-1)}),
-                  _calib->_views({1,_view.r(1,-1)}),
-                  _calib->_views({2,_view.r(1,-1)}));
+    cv::Vec3d r_v(_calib->_views({0,_view.r(0,-1)}),
+                  _calib->_views({1,_view.r(0,-1)}),
+                  _calib->_views({2,_view.r(0,-1)}));
     /*cv::Vec3d t_v(_calib->_views({3,_view.r(1,-1)),
                   _calib->_views({4,_view.r(1,-1)),
                   _calib->_views({5,_view.r(1,-1)));*/
     cv::Matx33d r_v_m;
     cv::Rodrigues(r_v, r_v_m);
       
-    cv::Vec3d r_c(_calib->_cams({0,_cam.r(1,-1)}),
-                  _calib->_cams({1,_cam.r(1,-1)}),
-                  _calib->_cams({2,_cam.r(1,-1)}));
+    cv::Vec3d r_c(_calib->_cams({0,_cam.r(0,-1)}),
+                  _calib->_cams({1,_cam.r(0,-1)}),
+                  _calib->_cams({2,_cam.r(0,-1)}));
     /*cv::Vec3d t_c(_calib->_cams({3,_cam.r(1,-1)}),
                   _calib->_cams({4,_cam.r(1,-1)}),
                   _calib->_cams({5,_cam.r(1,-1)}));*/
@@ -2839,21 +2846,25 @@ namespace ucalib {
   }
   cv::Vec3d RayCam::t() const
   {
+    cout << "get t from:" << _cam << " x " << _view << "\n";
+    
     /*cv::Vec3d r_v(_calib->_views({0,_view.r(1,-1)}),
                   _calib->_views({1,_view.r(1,-1)}),
                   _calib->_views({2,_view.r(1,-1)}));*/
-    cv::Vec3d t_v(_calib->_views({3,_view.r(1,-1)}),
-                  _calib->_views({4,_view.r(1,-1)}),
-                  _calib->_views({5,_view.r(1,-1)}));
+    cv::Vec3d t_v(_calib->_views({3,_view.r(0,-1)}),
+                  _calib->_views({4,_view.r(0,-1)}),
+                  _calib->_views({5,_view.r(0,-1)}));
+    
+    cout << "t_view: " << t_v << "\n";
     //Matx33d r_v_m;
     //cv::Rodrigues(r_v, r_v_m);
       
-    cv::Vec3d r_c(_calib->_cams({0,_cam.r(1,-1)}),
-                  _calib->_cams({1,_cam.r(1,-1)}),
-                  _calib->_cams({2,_cam.r(1,-1)}));
-    cv::Vec3d t_c(_calib->_cams({3,_cam.r(1,-1)}),
-                  _calib->_cams({4,_cam.r(1,-1)}),
-                  _calib->_cams({5,_cam.r(1,-1)}));
+    cv::Vec3d r_c(_calib->_cams({0,_cam.r(0,-1)}),
+                  _calib->_cams({1,_cam.r(0,-1)}),
+                  _calib->_cams({2,_cam.r(0,-1)}));
+    cv::Vec3d t_c(_calib->_cams({3,_cam.r(0,-1)}),
+                  _calib->_cams({4,_cam.r(0,-1)}),
+                  _calib->_cams({5,_cam.r(0,-1)}));
     cv::Matx33d r_c_m;
     cv::Rodrigues(r_c, r_c_m);
     
@@ -2893,19 +2904,30 @@ namespace ucalib {
   //FIXME correctly handle view idx as position in either/or/both cams,views
   void RayCalib::rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const
   {
-    printf("do rectification!\n");
+    RayCam* ref = (RayCam*)_ref_cam;
+    
+    printf("do rectification!"); cout << view_idx << "\n";
+    printf("ref:"); cout << ref->_cam << " x "<< ref->_view <<  "\n";
+    
     
     Mat_<double> rect_rays({4,_rays.r(1,2)});
     cv::Mat map;
     
+    RayCam *view_cam = (RayCam*)cam(view_idx);
+    printf("view:"); cout << view_cam->_cam << " x " << view_cam->_view <<  "\n";
+    
+    cv::Matx31d r = -view_cam->r();
+    cv::Matx31d t = -view_cam->t();
+    
     //this cam rotation
     //FIXME combine cam and view extrinsics!?!
-    cv::Matx31d r(-_views({0,view_idx.r(1,-1)}),
+    /*cv::Matx31d r(-_views({0,view_idx.r(1,-1)}),
                   -_views({1,view_idx.r(1,-1)}),
                   -_views({2,view_idx.r(1,-1)}));
     cv::Matx31d t(-_views({3,view_idx.r(1,-1)}),
                   -_views({4,view_idx.r(1,-1)}),
-                  -_views({5,view_idx.r(1,-1)}));
+                  -_views({5,view_idx.r(1,-1)}));*/
+    
     cv::Matx33d r_m;
     cv::Rodrigues(r, r_m);
     
@@ -2918,15 +2940,15 @@ namespace ucalib {
       //STEP 1 move lines into reference cam reference frame
       
       //FIXME what if there are no more cams?
-      cv::Matx31d offset(_rays({0, pos.r(1,2), pos.r(3,-1)}),
-                         _rays({1, pos.r(1,2), pos.r(3,-1)}),
+      cv::Matx31d offset(_rays({0, pos.r(1,2), ref->_cam.r(0,-1)}),
+                         _rays({1, pos.r(1,2), ref->_cam.r(0,-1)}),
                          0.0);
-      cv::Matx31d dir(_rays({2, pos.r(1,2), pos.r(3,-1)}),
-                      _rays({3, pos.r(1,2), pos.r(3,-1)}),
+      cv::Matx31d dir(_rays({2, pos.r(1,2), ref->_cam.r(0,-1)}),
+                      _rays({3, pos.r(1,2), ref->_cam.r(0,-1)}),
                       1.0);
     
       //revert cam translation to calibration origin (first cam) 
-      /*offset += t;
+      offset += t;
       //invert cam rotation and apply center cam rotation
       offset = ref_r_m * r_m * offset;
       
@@ -2938,7 +2960,7 @@ namespace ucalib {
       
       //normalize
       dir *= 1.0/dir(2);
-      offset -= offset(2)*dir;*/
+      offset -= offset(2)*dir;
       
       rect_rays({0, pos.r(1,2)}) = offset(0);
       rect_rays({1, pos.r(1,2)}) = offset(1);
@@ -2950,7 +2972,7 @@ namespace ucalib {
         cout << pos << dir << "\n"; 
     }
     
-    cout << "ref f: "<< _ref_cam->f() << r << t << ref_r << ref_t << ref_r_m*r_m <<  t+ref_t << "\n" << _img_size << "\nz: " << z << "\n";
+    cout << "view: "<< r << t << "\ncam:" << ref_r << ref_t << ref_r_m*r_m <<  t+ref_t << "\n";
     
     //STEP 2 calculate undist map for cam at depth
     map.create(src[1],src[0],CV_32FC2);

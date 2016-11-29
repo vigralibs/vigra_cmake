@@ -42,9 +42,9 @@ namespace ucalib {
   class Calib {
   public:
     //empty idx size is extrinsics+views size!
-    virtual Cam *cam(const Idx &cam = Idx()) = 0;
+    virtual Cam *cam(const Idx &cam = Idx()) const = 0;
     //empty idx size is extrinsics+views size!
-    virtual Cam *cam(const Idx &cam, const Idx &view) = 0;
+    virtual Cam *cam(const Idx &cam, const Idx &view) const = 0;
     virtual const Mat_<double> &extrinsics_cams() = 0;
     virtual const Mat_<double> &extrinsics_views() = 0;
     virtual const Mat_<double> &proj() = 0;
@@ -64,15 +64,15 @@ namespace ucalib {
     RayCalib(Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &rays, cv::Point2i img_size);
     RayCalib() {};
     //empty idx specifies first cam or view respectively
-    virtual Cam *cam(const Idx &cam);
+    virtual Cam *cam(const Idx &cam) const;
     //empty idx size is extrinsics+views size!
-    virtual Cam *cam(const Idx &cam, const Idx &view);
+    virtual Cam *cam(const Idx &cam, const Idx &view) const;
     virtual const Mat_<double> &extrinsics_cams();
     virtual const Mat_<double> &extrinsics_views();
     virtual const Mat_<double> &proj();
     virtual const Mat_<double> &rays();
     virtual cv::Size img_size() const;
-    virtual int features() const { return 0;/*Depth_Required | Rectification;*/ };
+    virtual int features() const { return Depth_Required | Rectification; };
     
     virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
     
