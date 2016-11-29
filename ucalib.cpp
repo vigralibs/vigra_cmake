@@ -2739,36 +2739,60 @@ namespace ucalib {
     virtual cv::Vec3d r() const;
     virtual cv::Vec3d t() const;
     virtual cv::Point2d f() const;
+    const Mat_<double> &rays();
     friend class RayCalib;
   private:
     const RayCalib *_calib;
-    Idx _view;
-    Idx _cam;
-    /*double fx, fy;
-    double rms;
-    Mat_<double> lines;*/
-    
-    //cv::Matx31d r, t;
+    cv::Vec3d _r, _t;
+    cv::Point2d _f;
+    Mat_<double> _rays;
   };
   
   Cam *RayCalib::cam(const Idx &cam) const
   {
-    RayCam *c = new RayCam();
+    Idx view = {cam.r(_cams.size()-1, -1)};
+    Idx cam_only = {cam.r(0, _cams.size()-2)};
     
-    c->_cam = {cam.r(0, _cams.size()-2)};
-    c->_view = {cam.r(_cams.size()-1, -1)};
-    c->_calib = this;
-    
-    return c;
+    return RayCalib::cam(cam_only, view);
   }
   
   Cam *RayCalib::cam(const Idx &cam, const Idx &view) const
   {
     RayCam *c = new RayCam();
-    
-    c->_cam = cam;
-    c->_view = view;
     c->_calib = this;
+    
+    cv::Vec3d r_v(_views({0,view.r(0,-1)}),
+                  _views({1,view.r(0,-1)}),
+                  _views({2,view.r(0,-1)}));
+    cv::Vec3d t_v(_views({3,view.r(0,-1)}),
+                  _views({4,view.r(0,-1)}),
+                  _views({5,view.r(0,-1)}));
+    cv::Matx33d r_v_m;
+    cv::Rodrigues(r_v, r_v_m);
+      
+    cv::Vec3d r_c(_cams({0,cam.r(0,-1)}),
+                  _cams({1,cam.r(0,-1)}),
+                  _cams({2,cam.r(0,-1)}));
+    cv::Vec3d t_c(_cams({3,cam.r(0,-1)}),
+                  _cams({4,cam.r(0,-1)}),
+                  _cams({5,cam.r(0,-1)}));
+    cv::Matx33d r_c_m;
+    cv::Rodrigues(r_c, r_c_m);
+    
+    //calc rotation
+    cv::Matx33d r_m = r_c_m*r_v_m;
+    cv::Rodrigues(r_m, c->_r);
+    
+    //calc translation
+    c->_t = r_c_m*t_v + t_c;
+    
+    //retrieve f
+    c->_f = cv::Point2d(_proj({0,cam.r(0,-1)}),
+                       _proj({0,cam.r(0,-1)}));
+    
+    c->_rays = _rays;
+    for(int dim = _rays.size()-1;dim>=3;dim--)
+      c->_rays = c->_rays.bind(dim, cam[dim-3]);
     
     return c;
   }
@@ -2793,6 +2817,11 @@ namespace ucalib {
     return _rays;
   }
   
+  const Mat_<double> &RayCam::rays()
+  {
+    return _rays;
+  }
+  
   const Cam *Calib::ref_cam() const
   {
     return _ref_cam;
@@ -2809,8 +2838,7 @@ namespace ucalib {
   
   cv::Point2d RayCam::f() const
   {
-    return cv::Point2d(_calib->_proj({0,_cam.r(1,-1)}),
-                       _calib->_proj({0,_cam.r(1,-1)}));
+    return _f;
   }
   
   void RayCam::projectPoints(const std::vector<cv::Point3f> &wpoints, std::vector<cv::Point2f> &ipoints)
@@ -2818,59 +2846,11 @@ namespace ucalib {
   
   cv::Vec3d RayCam::r() const
   {
-    cv::Vec3d r_v(_calib->_views({0,_view.r(0,-1)}),
-                  _calib->_views({1,_view.r(0,-1)}),
-                  _calib->_views({2,_view.r(0,-1)}));
-    /*cv::Vec3d t_v(_calib->_views({3,_view.r(1,-1)),
-                  _calib->_views({4,_view.r(1,-1)),
-                  _calib->_views({5,_view.r(1,-1)));*/
-    cv::Matx33d r_v_m;
-    cv::Rodrigues(r_v, r_v_m);
-      
-    cv::Vec3d r_c(_calib->_cams({0,_cam.r(0,-1)}),
-                  _calib->_cams({1,_cam.r(0,-1)}),
-                  _calib->_cams({2,_cam.r(0,-1)}));
-    /*cv::Vec3d t_c(_calib->_cams({3,_cam.r(1,-1)}),
-                  _calib->_cams({4,_cam.r(1,-1)}),
-                  _calib->_cams({5,_cam.r(1,-1)}));*/
-    cv::Matx33d r_c_m;
-    cv::Rodrigues(r_c, r_c_m);
-    
-    cv::Matx33d r_m = r_c_m*r_v_m;
-    cv::Vec3d r;
-    cv::Rodrigues(r_m, r);
-    
-    cout << "ref r :" << r_v << r_c << "=" << r << "\n";
-    
-    return r;    
+    return _r;    
   }
   cv::Vec3d RayCam::t() const
   {
-    cout << "get t from:" << _cam << " x " << _view << "\n";
-    
-    /*cv::Vec3d r_v(_calib->_views({0,_view.r(1,-1)}),
-                  _calib->_views({1,_view.r(1,-1)}),
-                  _calib->_views({2,_view.r(1,-1)}));*/
-    cv::Vec3d t_v(_calib->_views({3,_view.r(0,-1)}),
-                  _calib->_views({4,_view.r(0,-1)}),
-                  _calib->_views({5,_view.r(0,-1)}));
-    
-    cout << "t_view: " << t_v << "\n";
-    //Matx33d r_v_m;
-    //cv::Rodrigues(r_v, r_v_m);
-      
-    cv::Vec3d r_c(_calib->_cams({0,_cam.r(0,-1)}),
-                  _calib->_cams({1,_cam.r(0,-1)}),
-                  _calib->_cams({2,_cam.r(0,-1)}));
-    cv::Vec3d t_c(_calib->_cams({3,_cam.r(0,-1)}),
-                  _calib->_cams({4,_cam.r(0,-1)}),
-                  _calib->_cams({5,_cam.r(0,-1)}));
-    cv::Matx33d r_c_m;
-    cv::Rodrigues(r_c, r_c_m);
-    
-    cv::Vec3d t = r_c_m*t_v + t_c;
-    
-    return t;   
+    return _t;   
   }
 
   RayCalib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start)
@@ -2903,9 +2883,7 @@ namespace ucalib {
   
   //FIXME correctly handle view idx as position in either/or/both cams,views
   void RayCalib::rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const
-  {
-    RayCam* ref = (RayCam*)_ref_cam;
-    
+  {    
     printf("do rectification!"); cout << view_idx << "\n";
     printf("ref:"); cout << ref->_cam << " x "<< ref->_view <<  "\n";
     
@@ -2939,13 +2917,12 @@ namespace ucalib {
     for(auto pos : Idx_It_Dims(_rays, 1, 2)) {
       //STEP 1 move lines into reference cam reference frame
       
-      //FIXME what if there are no more cams?
-      cv::Matx31d offset(_rays({0, pos.r(1,2), ref->_cam.r(0,-1)}),
-                         _rays({1, pos.r(1,2), ref->_cam.r(0,-1)}),
+      cv::Matx31d offset(view_cam->rays()(0,pos.r(1,2)),
+                         view_cam->rays()(1,pos.r(1,2)),
                          0.0);
-      cv::Matx31d dir(_rays({2, pos.r(1,2), ref->_cam.r(0,-1)}),
-                      _rays({3, pos.r(1,2), ref->_cam.r(0,-1)}),
-                      1.0);
+      cv::Matx31d dir(view_cam->rays()(2,pos.r(1,2)),
+                         view_cam->rays()(3,pos.r(1,2)),
+                         1.0);
     
       //revert cam translation to calibration origin (first cam) 
       offset += t;
