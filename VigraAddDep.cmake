@@ -2,6 +2,26 @@ if(VigraAddDepIncluded)
     return()
 endif()
 
+# Store the path to this file as a cached, hidden variable.
+set(VigraAddDepPath "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "")
+
+get_property(_VigraAddDepIncludedOnce GLOBAL PROPERTY VigraAddDepIncludedOnce)
+if(NOT _VigraAddDepIncludedOnce)
+  # On first inclusion, we erase the global cache variable representing the list of
+  # directories containing the libraries added via add_library().
+  set(_VAD_LIBRARY_DIR_LIST "" CACHE INTERNAL "")
+  function(VAD_CREATE_ACTIVATE)
+    if(WIN32 OR TRUE)
+      set(VAD_LIBRARY_DIR_LIST "${_VAD_LIBRARY_DIR_LIST}")
+      configure_file("${VigraAddDepPath}/vad_activate.bat.in" "${CMAKE_BINARY_DIR}/vad_activate.bat.generate" @ONLY)
+    endif()
+  endfunction()
+  variable_watch(_VAD_LIBRARY_DIR_LIST VAD_CREATE_ACTIVATE)
+  set_property(GLOBAL PROPERTY VigraAddDepIncludedOnce TRUE)
+  file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/vad_activate.bat" INPUT "${CMAKE_CURRENT_BINARY_DIR}/vad_activate.bat.generate")
+  configure_file("${VigraAddDepPath}/vad_deactivate.bat.in" "${CMAKE_BINARY_DIR}/vad_deactivate.bat" @ONLY)
+endif()
+
 include(CMakeParseArguments)
 include(VAD_target_properties)
 
@@ -71,10 +91,10 @@ function(add_library NAME)
   list(FIND ARGN "INTERFACE" _IDX_IFACE)
   list(FIND ARGN "ALIAS" _IDX_ALIAS)
   if(_IDX_IFACE EQUAL -1 AND _IDX_ALIAS EQUAL -1)
-    get_property(_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
+    set(_LIBRARY_DIR_LIST "${_VAD_LIBRARY_DIR_LIST}")
     list(APPEND _LIBRARY_DIR_LIST "$<TARGET_FILE_DIR:${NAME}>")
     list(REMOVE_DUPLICATES _LIBRARY_DIR_LIST)
-    set_property(GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST ${_LIBRARY_DIR_LIST})
+    set(_VAD_LIBRARY_DIR_LIST "${_LIBRARY_DIR_LIST}" CACHE INTERNAL "")
   endif()
 endfunction()
 
@@ -138,9 +158,9 @@ function(vad_make_imported_target_global NAME)
   # the target is now just an alias with no TARGET_FILE_DIR property. Its actual
   # TARGET_FILE_DIR property has been recorded in the STUB targets, which export
   # this information in the global list.
-  get_property(_LIBRARY_DIR_LIST GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST)
+  set(_LIBRARY_DIR_LIST "${_VAD_LIBRARY_DIR_LIST}")
   list(REMOVE_ITEM _LIBRARY_DIR_LIST "$<TARGET_FILE_DIR:${NAME}>")
-  set_property(GLOBAL PROPERTY _VAD_LIBRARY_DIR_LIST ${_LIBRARY_DIR_LIST})
+  set(_VAD_LIBRARY_DIR_LIST "${_LIBRARY_DIR_LIST}")
 endfunction()
 
 # Override the builtin find_package() function to just call vigra_add_dep(). The purpose of this override is to make

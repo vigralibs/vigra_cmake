@@ -1,0 +1,3 @@
+echo off
+set /p PATH=<.vad_old_path
+set /p PROMPT=<.vad_old_prompt
