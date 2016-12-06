@@ -1194,7 +1194,7 @@ struct calib_infos
   int views_min, views_max;
 };
 
-int trans_min = 0;
+int trans_min = 100;
 
 static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &lines, Mat_<double> &proj, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth, double proj_weight = 1.0, bool eval = false)
 {
@@ -1284,10 +1284,10 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
           //cout << &extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}) << " : " << extrinsics_cams({3,ray.r(i.cams_min,i.cams_max)}) << "\n";
         }*/
         
-        if (!eval) {
+        /*if (!eval) {
           lines({2,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
           lines({3,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
-        }
+        }*/
         
         ceres::CostFunction* cost_function = 
         LineZ3DirPinholeError::Create(ip.x, ip.y, p.x, p.y, w);
@@ -3007,7 +3007,7 @@ namespace ucalib {
     
     printf("scalarprodukt: %f\n", trans.dot(dir));
     double angle = acos(trans.dot(dir));
-    rot *= 0;//angle;
+    rot *= -angle;
     
     printf("rectification angle: %f\n", angle);
     
