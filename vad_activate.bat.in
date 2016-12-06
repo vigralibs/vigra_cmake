@@ -1,9 +1,8 @@
-echo off
+@echo off
 echo %PROMPT% > .vad_old_prompt
 echo %PATH% > .vad_old_path
 
 set NEWPATH=@VAD_LIBRARY_DIR_LIST@
-echo %NEWPATH%|find /i "%NP%">nul  || set NEWPATH=%NEWPATH%;%NP%
+echo %PATH%|find /i "%NEWPATH%">nul  || set PATH=%NEWPATH%;%PATH%
 
-set PATH=%NP%;%PATH%
 set PROMPT=(vigra_cmake)%PROMPT%
