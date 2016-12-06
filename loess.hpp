@@ -371,11 +371,12 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem_pers, &summary);
   
-  double px = abs(coeffs[6]/coeffs[8]);
+  //FIXME make perspective filter configurable
+  /*double px = abs(coeffs[6]/coeffs[8]);
   double py = abs(coeffs[7]/coeffs[8]);
   
   if (std::max(px,py) > 0.0002)
-    return std::numeric_limits<double>::quiet_NaN();
+    return std::numeric_limits<double>::quiet_NaN();*/
   
   //printf("%5d / ", summary.num_successful_steps);
   //std::cout << summary.FullReport() << "\n";
@@ -470,10 +471,10 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
   
   //std::cout << "perspectivity: " << (abs(coeffs[0])+abs(coeffs[3]))/abs(coeffs[6]) << " " << (abs(coeffs[1])+abs(coeffs[4]))/abs(coeffs[7]) << "\n";
   
-  px = abs(coeffs[6]/coeffs[8]);
+  /*px = abs(coeffs[6]/coeffs[8]);
   py = abs(coeffs[7]/coeffs[8]);
   
-  /*if (std::max(px,py) > 0.0002)
+  if (std::max(px,py) > 0.0002)
     return std::numeric_limits<double>::quiet_NaN();*/
   
   if (summary.termination_type == ceres::TerminationType::NO_CONVERGENCE){

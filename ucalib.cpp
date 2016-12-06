@@ -94,7 +94,7 @@ void get_undist_map_for_depth(Mat_<double> lines, cv::Mat &map, double z, cv::Po
 
   int approx_step = 16;
   
-  printf("calc ipoints\n");
+  //printf("calc ipoints\n");
   int progress = 0;
 #pragma omp parallel for schedule(dynamic)
   for(int y=0;y<idim.y;y+=approx_step) {
@@ -351,7 +351,7 @@ struct LineZ3DirPinholeError {
     residuals[0] = (p[0] - p[2]*line[0])*T(w_);
     residuals[1] = (p[1] - p[2]*line[1])*T(w_);
     //avoid negative residuals
-    residuals[2] = (p[2] - abs(p[2]))*T(10000);
+    //residuals[2] = (p[2] - abs(p[2]))*T(10000);
     
     /*if (ix_ == 0.0)
       residuals[4] = T(0.0);//p[0]/p[2]*T(w_);
@@ -378,7 +378,7 @@ struct LineZ3DirPinholeError {
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(double ix, double iy, double x, double y, double w = 1.0) {
-    return (new ceres::AutoDiffCostFunction<LineZ3DirPinholeError, 3, 6, 2>(
+    return (new ceres::AutoDiffCostFunction<LineZ3DirPinholeError, 2, 6, 2>(
                 new LineZ3DirPinholeError(ix, iy, x, y, w)));
   }
   
@@ -1194,6 +1194,8 @@ struct calib_infos
   int views_min, views_max;
 };
 
+int trans_min = 0;
+
 static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &lines, Mat_<double> &proj, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth, double proj_weight = 1.0)
 {
   cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
@@ -1207,11 +1209,29 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
   for(auto ray : Idx_It_Dims(proxy, 1, -1)) {
     bool ref_cam = true;
       
+    //cams
+    /*if (ray[3])
+      continue;*/
+    
+    //translation views
+    /*if (ray[5] && ray[4] != 0)
+      continue;*/
+    
+    //translation views
+    if (ray[4] > trans_min)
+      continue;
+    
+    /*if (ray[5] > 1)
+      continue;*/
     
     /*if (ray["cams"] > _calib_cams_limit)
       continue;
     if (ray["views"] > _calib_views_limit)
       continue;*/
+    
+    /*printf("cams %d-%d\n", i.cams_min, i.cams_max);
+    printf("views %d-%d\n", i.views_min, i.views_max);
+    cout << extrinsics_views << "\n";*/
     
     for(int j=i.cams_min;j<=i.cams_max;j++)
       if (ray[j])
@@ -1224,8 +1244,8 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
     
     cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*i.img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*i.img_size.y/proxy_size.y);
 
-    if (ray["y"] == center.y && ray["x"] == center.x)
-      cout << ref_cam << ray << p << &proxy({0,ray.r("x",-1)}) << "\n";
+    /*if (ray["y"] == center.y && ray["x"] == center.x)
+      cout << ref_cam << ray << p << &proxy({0,ray.r("x",-1)}) << "\n";*/
     
     if (isnan(p.x) || isnan(p.y))
       continue;
@@ -1260,8 +1280,12 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
         
         
         if (ray["y"] == center.y && ray["x"] == center.x) {
-          cout << &extrinsics_views({0,ray.r(i.views_min,i.views_max)}) << p << ray << "\n";
+          cout << &extrinsics_views({0,ray.r(i.views_min,i.views_max)}) << " : " << extrinsics_views({3,ray.r(i.views_min,i.views_max)}) << p << ray << "\n";
+          //cout << &extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}) << " : " << extrinsics_cams({3,ray.r(i.cams_min,i.cams_max)}) << "\n";
         }
+        
+        lines({2,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
+        lines({3,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
         
         ceres::CostFunction* cost_function = 
         LineZ3DirPinholeError::Create(ip.x, ip.y, p.x, p.y, w);
@@ -2165,7 +2189,7 @@ void update_cams_mesh(Mesh &cams, Mat_<double> extrinsics_cams, Mat_<double> ext
       
       Mesh plane = mesh_plane().scale(2000);
       
-      cout << pos; printf("trans %fx%fx%f\n", trans(0), trans(1), trans(2));
+      //cout << pos; printf("trans %fx%fx%f\n", trans(0), trans(1), trans(2));
       
       plane -= trans;
       plane.rotate(-rot);
@@ -2203,7 +2227,7 @@ private:
 #endif
 
 
-double solve_pinhole(const calib_infos &i, const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
+double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
@@ -2215,10 +2239,12 @@ double solve_pinhole(const calib_infos &i, const ceres::Solver::Options &options
     //_zline_problem_add_proj_error(problem, lines, img_size, proj, proj_weight, 0.0);
   //_zline_problem_add_lin_views(problem, extrinsics_rel, dir);
   
+  options.function_tolerance = 1e-20;
+  
   printf("solving pinhole problem (proj w = %f...\n", proj_weight);
   ceres::Solve(options, &problem, &summary);
   printf("target rot: %fx%fx%f (%p)\n", extrinsics_views(0), extrinsics_views(1), extrinsics_views(2), &extrinsics_views(0));
-  //std::cout << summary.FullReport() << "\n";
+  std::cout << summary.FullReport() << "\n";
   printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
@@ -2421,9 +2447,9 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   
   lines.create({IR(4, "line"), proxy.r(1, i.cams_max)});
   extrinsics_cams.create({IR(6, "extrinsics"), proxy.r(i.cams_min, i.cams_max)});
-  cout << "extrinsics_cams: " << extrinsics_cams << "\n";
+  //cout << "extrinsics_cams: " << extrinsics_cams << "\n";
   extrinsics_views.create({IR(6, "extrinsics"), proxy.r(i.views_min,i.views_max)});
-  cout << "extrinsics_views: " << extrinsics_views << "\n";
+  //cout << "extrinsics_views: " << extrinsics_views << "\n";
   
   printf("calibrate with %d views of %d cams\n", extrinsics_views.total()/6, extrinsics_cams.total()/6);
   
@@ -2514,7 +2540,10 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   target_mesh(2,0,1) = 0;
   
   
-  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
+  for(trans_min = 1;trans_min<=20;trans_min++) {
+    printf("trans_min: %d\n", trans_min);
+    solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
+  }
   
   delete mesh;
   
@@ -2731,6 +2760,36 @@ printf("\nsolving central camera with deformation ------------------------------
 }
 
 namespace ucalib {
+  
+  
+  class RayCalib : public Calib {
+  public:
+    RayCalib(Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &rays, cv::Point2i img_size);
+    RayCalib() {};
+    RayCalib(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string);
+    //empty idx specifies first cam or view respectively
+    virtual Cam *cam(const Idx &cam) const;
+    //empty idx size is extrinsics+views size!
+    virtual Cam *cam(const Idx &cam, const Idx &view) const;
+    virtual const Mat_<double> &extrinsics_cams() const;
+    virtual const Mat_<double> &extrinsics_views() const;
+    virtual const Mat_<double> &proj();
+    virtual const Mat_<double> &rays();
+    //virtual cv::Size img_size() const;
+    virtual int features() const { return Depth_Required | Rectification; };
+    virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string);
+    
+    virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
+    
+    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
+    friend class RayCam;
+  private:
+    //cv::Point2i _img_size;
+    Mat_<double> _rays; //same size as cam_extrinsics
+    Mat_<double> _cams; //same size as cam_extrinsics
+    Mat_<double> _views; //same size as cam_extrinsics
+    Mat_<double> _proj; //same size as cam_extrinsics
+  };
  
   //TODO hide?
   class RayCam : public Cam {
@@ -2739,6 +2798,7 @@ namespace ucalib {
     virtual cv::Vec3d r() const;
     virtual cv::Vec3d t() const;
     virtual cv::Point2d f() const;
+    virtual void rectify_to_dir(cv::Vec3d dir);
     const Mat_<double> &rays();
     friend class RayCalib;
   private:
@@ -2797,12 +2857,12 @@ namespace ucalib {
     return c;
   }
   
-  const Mat_<double> &RayCalib::extrinsics_cams()
+  const Mat_<double> &RayCalib::extrinsics_cams() const
   {
     return _cams;
   }
   
-  const Mat_<double> &RayCalib::extrinsics_views()
+  const Mat_<double> &RayCalib::extrinsics_views() const
   {
     return _views;
   }
@@ -2831,10 +2891,10 @@ namespace ucalib {
     _ref_cam = cam;
   }
   
-  cv::Size RayCalib::img_size() const
+  /*cv::Size RayCalib::img_size() const
   {
     return _img_size;
-  }
+  }*/
   
   cv::Point2d RayCam::f() const
   {
@@ -2853,12 +2913,12 @@ namespace ucalib {
     return _t;   
   }
 
-  RayCalib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start)
-  {    
+  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start)
+  {
     return calibrate_rays(proxy, Mat_<double>(), img_size, views_dims_start);
   }
   
-  RayCalib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start)
+  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start)
   {
     RayCalib *c = new RayCalib();
     
@@ -2871,6 +2931,43 @@ namespace ucalib {
     return c;
   }
   
+  void RayCam::rectify_to_dir(cv::Vec3d dir)
+  {    
+    //TODO derive direction from layout of all cams? least squares fit of a line through cam positions
+    dir *= 1.0/norm(dir);
+  
+    //FIXME better last cam selection!?!
+    Idx lastview(_calib->extrinsics_views().r(1,-2));
+    for(auto &i : lastview)
+      i--;
+    //cout << "lastview: " << lastview << "\n";
+    //FIXME free cam / add refcounting within RayCalib?
+
+    //cout << "ref cams:" << _calib->cam({0},lastview)->t() << _calib->cam({0})->t() << "\n";
+    cv::Vec3d trans = _calib->cam({0},lastview)->t() - _calib->cam({0})->t();
+    //cout << "dir: "<< trans << "\n";
+    trans *= 1.0/norm(trans);
+    //cout << "dir: "<< trans << "\n";
+    
+    cv::Vec3d rot = trans.cross(dir);
+    
+    printf("scalarprodukt: %f\n", trans.dot(dir));
+    double angle = acos(trans.dot(dir));
+    rot *= 0;//angle;
+    
+    printf("rectification angle: %f\n", angle);
+    
+    cv::Matx33d r_orig, r_new, r_add;
+    cv::Rodrigues(_r, r_orig);
+    cv::Rodrigues(rot,r_add);
+    r_new = r_add*r_orig;
+    cv::Rodrigues(r_new,_r);
+    
+    cv::Rodrigues(rot,r_add);
+    _t = r_add*_t;
+    
+    //FIXME also need to modify t (to keep position within new camera coordiante system)
+  }
   
   RayCalib::RayCalib(Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &rays, cv::Point2i img_size)
   {
@@ -2878,21 +2975,55 @@ namespace ucalib {
     _views = extrinsics_views;
     _proj = proj;
     _rays = rays;
-    _img_size = img_size;
+    //_img_size = img_size;
+  }
+  
+  const char *ucalib_str = "UCALIB";
+  
+  RayCalib::RayCalib(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string)
+  {
+    const char *type = load_string("type");
+    
+    assert(!strcmp(ucalib_str, type));
+    _rays = load_mat("lines");
+    _views = load_mat("extrinsics/views");
+    _cams = load_mat("extrinsics/cams");
+    _proj = load_mat("projection");
+    cout << "loaded calib" << _rays <<  _views <<  _cams << _proj << "\n";
+  }
+  
+  
+  void RayCalib::save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string)
+  {
+    save_string("type", ucalib_str);
+    save_mat("lines", rays());
+    save_mat("extrinsics/views", extrinsics_views());
+    save_mat("extrinsics/cams", extrinsics_cams());
+    save_mat("projection", proj());
+  }
+  
+  Calib* load(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string)
+  {
+    const char *type = load_string("type");
+    
+    if (!strcmp("UCALIB", type))
+      return new RayCalib(load_mat, load_string);
+    
+    return NULL;
   }
   
   //FIXME correctly handle view idx as position in either/or/both cams,views
   void RayCalib::rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const
   {    
-    printf("do rectification!"); cout << view_idx << "\n";
-    printf("ref:"); cout << ref->_cam << " x "<< ref->_view <<  "\n";
+    //printf("do rectification!"); cout << view_idx << "\n";
+    //printf("ref:"); cout << ref->_cam << " x "<< ref->_view <<  "\n";
     
     
     Mat_<double> rect_rays({4,_rays.r(1,2)});
     cv::Mat map;
     
     RayCam *view_cam = (RayCam*)cam(view_idx);
-    printf("view:"); cout << view_cam->_cam << " x " << view_cam->_view <<  "\n";
+    //printf("view:"); cout << view_cam->_cam << " x " << view_cam->_view <<  "\n";
     
     cv::Matx31d r = -view_cam->r();
     cv::Matx31d t = -view_cam->t();
@@ -2923,6 +3054,11 @@ namespace ucalib {
       cv::Matx31d dir(view_cam->rays()(2,pos.r(1,2)),
                          view_cam->rays()(3,pos.r(1,2)),
                          1.0);
+      
+      if (pos[1] == _rays[1]/2 && pos[2] == _rays[2]/2) {
+        printf("center ray (shold be zero!)\n");
+        cout << pos << dir << "\n"; 
+      }
     
       //revert cam translation to calibration origin (first cam) 
       offset += t;
@@ -2944,16 +3080,14 @@ namespace ucalib {
       
       rect_rays({2, pos.r(1,2)}) = dir(0);
       rect_rays({3, pos.r(1,2)}) = dir(1);
-      
-      if (pos[1] == _rays[1]/2 && pos[2] == _rays[2]/2)
-        cout << pos << dir << "\n"; 
     }
     
     cout << "view: "<< r << t << "\ncam:" << ref_r << ref_t << ref_r_m*r_m <<  t+ref_t << "\n";
     
     //STEP 2 calculate undist map for cam at depth
     map.create(src[1],src[0],CV_32FC2);
-    get_undist_map_for_depth(rect_rays, map, z, _img_size, _ref_cam->f());
+    printf("load depth %f\n", z);
+    get_undist_map_for_depth(rect_rays, map, z, cv::Point2i(src[0],src[1]), _ref_cam->f());
     
     //STEP 3 warp
     remap(cvMat(src), cvMat(dst), map, cv::noArray(), cv::INTER_LINEAR);

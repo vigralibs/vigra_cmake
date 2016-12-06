@@ -46,7 +46,7 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(Mat
   
   float hx = idim.x / proxy[1] / 2;
   float hy = idim.y / proxy[2] / 2;
-  printf("weight falloff in middle: %f\n", exp(-(hx*hx+hy*hy)/(2.0*sigma*sigma)));
+  //printf("weight falloff in middle: %f\n", exp(-(hx*hx+hy*hy)/(2.0*sigma*sigma)));
   
 #ifndef WIN32
   #pragma omp parallel for schedule(dynamic,4) collapse(2)
