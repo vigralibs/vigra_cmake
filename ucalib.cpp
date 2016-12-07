@@ -2735,7 +2735,7 @@ namespace ucalib {
     
     virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
     
-    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
+    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts);
     friend class RayCam;
   private:
     //cv::Point2i _img_size;
@@ -2867,12 +2867,12 @@ namespace ucalib {
     return _t;   
   }
 
-  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start)
+  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts)
   {
-    return calibrate_rays(proxy, Mat_<double>(), img_size, views_dims_start);
+    return calibrate_rays(proxy, Mat_<double>(), img_size, views_dims_start, opts);
   }
   
-  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start)
+  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts)
   {
     RayCalib *c = new RayCalib();
     

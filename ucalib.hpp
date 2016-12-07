@@ -22,11 +22,25 @@ namespace ucalib {
   
   using namespace MetaMat;
   
+  enum Flags {
+    CENTRAL = 1, 
+    PLANAR = 2,
+    MAX = 4
+  };
+  
   enum Features
   {
     None = 0,
     Depth_Required = 1,
     Rectification = 2
+  };
+  
+  class Options {
+  public:
+    Options(int flags) : _flags(flags) {}
+    int flags() { return _flags; }
+  private:
+    int _flags;
   };
 
   class Calib;
@@ -68,8 +82,8 @@ namespace ucalib {
   calibration input: proxy with: (xy,viewpoints,channels,cams,...,views)
   */
 
-  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start = DimSpec(-1));
-  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start);
+  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start = DimSpec(-1), const Options &opts = Options(0));
+  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts = Options(0));
   Calib* load(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string);
 
 }
