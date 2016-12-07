@@ -929,6 +929,78 @@ struct LineZ3GenericFreeMeshError {
 
 
 // Generic line error, with target deformation
+struct LineZ3GenericMeshExtraError {
+  LineZ3GenericMeshExtraError(double x, double y, double ws[4], cv::Mat_<float> j)
+      : x_(x), y_(y) { for(int i=0;i<4;i++) ws_[i] = ws[i]; j_ = j.clone(); }
+      
+  template <typename T>
+  bool operator()(const T* const extr_cams, const T* const extr_views, const T* const o, const T* const d, const T* const tl, const T* const tr, const T* const bl,  const T* const br,
+                  T* residuals) const {
+                    
+                    
+    T p[3], w_p[3], p_v[3];
+    w_p[0] = T(x_);
+    w_p[1] = T(y_);
+    w_p[2] = T(0);
+    
+    add_mul_vecs(w_p, tl, ws_[0], w_p);
+    add_mul_vecs(w_p, tr, ws_[1], w_p);
+    add_mul_vecs(w_p, bl, ws_[2], w_p);
+    add_mul_vecs(w_p, br, ws_[3], w_p);
+    
+    T mesh_d[3] = {w_p[0]-T(x_),w_p[1]-T(y_),w_p[2]};
+    
+    ceres::AngleAxisRotatePoint(extr_views, w_p, p_v);
+
+    // camera[3,4,5] are the translation.
+    p_v[0] += extr_views[3];
+    p_v[1] += extr_views[4];
+    p_v[2] += extr_views[5];
+    
+    ceres::AngleAxisRotatePoint(extr_cams, p_v, p);
+
+    // camera[3,4,5] are the translation.
+    p[0] += extr_cams[3];
+    p[1] += extr_cams[4];
+    p[2] += extr_cams[5];
+    
+    T p_c[3]; //res in cam coordinates
+    T p_t[3]; //res in target coordinates
+    T r_neg[3] = {-extr_cams[0],-extr_cams[1],-extr_cams[2]};
+    
+    //compare with projected pinhole camera ray
+    p_c[0] = (p[0] - (o[0] + p[2]*d[0]));
+    p_c[1] = (p[1] - (o[1] + p[2]*d[1]));
+    p_c[2] = T(0);
+    
+    /*ceres::AngleAxisRotatePoint(r_neg, p_c, p_t);
+    
+    //TODO check p_t[2] == 0 -> no-not the case...
+    residuals[0] = (T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1]) * T(1/0.1);
+    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) * T(1/0.1);*/
+    
+     residuals[0] = p_c[0];
+     residuals[1] = p_c[1];
+    
+    return true;
+  }
+
+  // Factory to hide the construction of the CostFunction object from
+  // the client code.
+  static ceres::CostFunction* Create(double x, double y, double ws[4], cv::Mat_<float> j) {
+    return (new ceres::AutoDiffCostFunction<LineZ3GenericMeshExtraError, 2, 6, 6, 2, 2, 3, 3, 3, 3>(
+                new LineZ3GenericMeshExtraError(x, y, ws, j)));
+  }
+
+  double x_,y_;
+  double ws_[4];
+  double wx_, wy_;
+  cv::Mat_<float> j_;
+};
+
+
+
+// Generic line error, with target deformation
 struct MeshSmoothError {
   MeshSmoothError(double w)
       : w_(w) {}
@@ -1189,6 +1261,7 @@ static void _zline_problem_add_proj_error_4P(ceres::Problem &problem, Mat_<doubl
 struct calib_infos
 {
   cv::Point2i img_size;
+  cv::Point2i target_size;
   //proxy indices
   int cams_min, cams_max;
   int views_min, views_max;
@@ -1276,286 +1349,182 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
 }
 
 
-static void _zline_problem_add_pinhole_lines_is(ceres::Problem &problem, cv::Point2i img_size, const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &lines, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth)
+static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &lines, Mat_<double> &mesh, bool reproj_error_calc_only = false, const Mat_<float> &proxy_j = Mat_<float>())
 {
   cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
   
-  double two_sigma_squared = 2.0*(img_size.x*img_size.x+img_size.y*img_size.y)*extr_center_size*extr_center_size;
+  double two_sigma_squared = 2.0*(i.img_size.x*i.img_size.x+i.img_size.y*i.img_size.y)*extr_center_size*extr_center_size;
   cv::Point2i proxy_size(lines["x"], lines["y"]);
+  
+  cv::Point2d mesh_size(mesh[1],mesh[2]);
+  
+  Mat_<float> mesh_coverage({mesh[1],mesh[2]});
+  
+  cv::Point2d mesh_center(0,0);
+  int mesh_counter = 0;
+  
+  cvMat(mesh_coverage).setTo(0);
   
   //channels == 0 && cams == 0
   int last_view = 0;
   int ray_count = 0;
-  for(auto ray : Idx_It_Dims(proxy, "x", "views")) {
-    bool ref_cam = true;
-    
-    if (ray["cams"] > _calib_cams_limit)
-      continue;
-    if (ray["views"] > _calib_views_limit)
-      continue;
-    
-    for(int i=proxy.dim("channels");i<=proxy.dim("cams");i++)
-      if (ray[i])
-        ref_cam = false;
+  for(auto ray : Idx_It_Dims(proxy, 1, -1)) {
+      
       
     cv::Point2f p(proxy({0,ray.r("x",-1)}),
                   proxy({1,ray.r("x",-1)}));
     
     
-    cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*img_size.y/proxy_size.y);
-
+    cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*i.img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*i.img_size.y/proxy_size.y);
+    
     if (isnan(p.x) || isnan(p.y))
       continue;
     
-    double w;
-    
-    /*if (falloff)
-      w = calc_line_pos_weight(cv::Point2i(ray["x"], ray["y"]), proxy_size, extr_center_size, min_weight);
-    else*/
-      w = 1.0;
- 
-    if (ray["views"] != last_view) {
-      printf("view %d: %d rays\n", last_view, ray_count);
-      last_view = ray["views"];
-      ray_count = 0;
-    }
-    
-    //keep center looking straight (in local ref system)
-    if (ray["y"] == center.y && ray["x"] == center.x) {
-      ceres::CostFunction* cost_function =
-      LineZ3CenterDirError::Create();
-      problem.AddResidualBlock(cost_function, loss, 
-                              &lines({2,ray.r("x","cams")}));
-      ray_count++;
-    }
-    
-    if (w > 0.0) {
-      if (ref_cam) {
         
-        //std::cout << "process: " << ray << p << "\n";
-        //regular line error (in x/y world direction)
-        ceres::CostFunction* cost_function = 
-        LineZ3DirPinholeErrorIS::Create(ip.x, ip.y, p.x, p.y, w);
-        problem.AddResidualBlock(cost_function,
-                                NULL,
-                                &extrinsics({0,ray["views"]}),
-                                //use only direction part!
-                                &lines({2,ray.r("x","cams")}));
-      }
-      else {
-        abort();
-        /*ceres::CostFunction* cost_function = 
-        LineZ3DirPinholeExtraError::Create(p.x, p.y, w);
-        problem.AddResidualBlock(cost_function,
-                                NULL,
-                                &extrinsics({0,ray["views"]}),&extrinsics_rel({0,ray.r("channels","cams")}),
-                                //use only direction part!
-                                &lines({2,ray.r("x","cams")}));
-        */
-        ceres::CostFunction* cost_function = 
-        LineZ3DirPinholeError::Create(ip.x, ip.y, p.x, p.y, w);
-        problem.AddResidualBlock(cost_function,
-                                NULL,
-                                &extrinsics_rel({0,ray.r("channels","cams")}),
-                                //use only direction part!
-                                &lines({2,ray.r("x","cams")}));
-      }
-      ray_count++;
-    }
-  }
-  printf("view %d: %d rays\n", last_view, ray_count);
-}
-
-class ApxMedian
-{
-public:
-  ApxMedian(double step, double max)
-  {
-    _inv_step = 1.0/step;
-    _lin_buckets = int(M_E*_inv_step)+1;
-    _max_idx = _lin_buckets+log(max*100.0)*_inv_step;
-    _buckets.resize(_max_idx);
-    _max_idx--;
-  };
-  
-  
-  void add(double val)
-  {
-    val = abs(val)*100.0;
+    //TODO randomize flag?
+    //lines({2,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
+    //lines({3,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
     
-    if (val >= M_E)
-      _buckets[min(int(_lin_buckets+log(val)*_inv_step), _max_idx)]++;
-    else
-      _buckets[val*_inv_step]++;
     
-    _count++;
-  };
-  
-  double median()
-  {
-    int sum = 0;
-    for(int i=0;i<_max_idx;i++) {
-      sum += _buckets[i];
-      if (sum >= _count/2) {
-        printf("bucket %d sum %d count/2: %d\n", i, sum, _count/2);
-        if (i < _lin_buckets)
-          return i/_inv_step*0.01;
-        else
-          return exp(i - _lin_buckets)*0.01;
-      }
-    }
-  }
-  
-private:
-  std::vector<int> _buckets;
-  int _max_idx;
-  int _lin_buckets;
-  double _inv_step;
-  int _count = 0;
-};
-
-static int _zline_problem_filter_pinhole_lines(const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &lines, double threshold)
-{
-  return 0;
-  /*double step = 0.0001;
-  //ApxMedian med(step, 1.0);
-  std::vector<float> scores;
-  int count = 0, remain = 0;
-  cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
-  
-  //channels == 0 && cams == 0
-  for(auto ray : Idx_It_Dims(proxy, "x", "views")) {
-    bool ref_cam = true;
+    ///////////////////// calc mesh weights /////////////////////
     
-    for(int i=proxy.dim("channels");i<=proxy.dim("cams");i++)
-      if (ray[i])
-        ref_cam = false;
-      
-    cv::Point2f p(proxy({0,ray.r("x",-1)}),
-                  proxy({1,ray.r("x",-1)}));
+    double ws[4];
+    double *points[4];
     
-    if (isnan(p.x) || isnan(p.y))
+    cv::Point2d mesh_f = cv::Point2d(p.x / i.target_size.x * (mesh_size.x-2), p.y / i.target_size.y * (mesh_size.y-2));
+    cv::Point2i mesh_i(floor(mesh_f.x),floor(mesh_f.y));
+    
+    mesh_center += mesh_f;
+    mesh_counter++;
+    
+    mesh_f -= cv::Point2d(mesh_i);
+    
+    ws[0] = (1-mesh_f.x)*(1-mesh_f.y);
+    ws[1] = (mesh_f.x)*(1-mesh_f.y);
+    ws[2] = (1-mesh_f.x)*(mesh_f.y);
+    ws[3] = (mesh_f.x)*(mesh_f.y);
+    
+    if (mesh_i.x+1 >= mesh[1] || mesh_i.y+1 >= mesh[2] || mesh_i.x < 0 || mesh_i.y < 0) {
+      printf("WARNING: very wrong target coordinate:"); 
+      cout << mesh_f << "/" << p << "\n";
       continue;
-    
-    double residuals[3];
-    
-    if (ref_cam) {
-      LineZ3DirPinholeError err(p.x, p.y);
-      err.operator()<double>(&extrinsics({0,ray["views"]}), &lines({2,ray.r("x","cams")}), residuals);
-    }
-    else {
-      LineZ3DirPinholeExtraError err(p.x, p.y);
-      err.operator()<double>(&extrinsics({0,ray["views"]}), &extrinsics_rel({0,ray.r("channels","cams")}), &lines({2,ray.r("x","cams")}), residuals);
     }
     
-    double err = sqrt(residuals[0]*residuals[0]+residuals[1]*residuals[1]);
-    scores.push_back(err);
-    //med.add(err);
-    //if (err >= 0.1) {
-    //  proxy({0,ray.r("x",-1)}) = std::numeric_limits<double>::quiet_NaN();
-    //  proxy({1,ray.r("x",-1)}) = std::numeric_limits<double>::quiet_NaN();
+    mesh_coverage(mesh_i.x, mesh_i.y) += ws[0];
+    mesh_coverage(mesh_i.x+1, mesh_i.y) += ws[1];
+    mesh_coverage(mesh_i.x, mesh_i.y+1) += ws[2];
+    mesh_coverage(mesh_i.x+1, mesh_i.y+1) += ws[3];
+    
+    
+    ///////////////////// calc derivatives /////////////////////
+    
+    cv::Mat j;
+    if (proxy_j.total()) {
+      j = cvMat(proxy_j.bindAll(-1, -1, ray["x"], ray["y"], ray["channels"], ray["cams"], ray["views"]));
+      j = j.clone();
+      invert(j, j);
+    }
+    else
+      j = cv::Mat::eye(2, 2, CV_64F);
+    
+    //if (!reproj_error_calc_only) {
+      //push model away from pinhole!
+      lines({0,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
+      lines({1,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
+      for(int c=0;c<3;c++) {
+        mesh(c,mesh_i.x, mesh_i.y) = (rand() / double(RAND_MAX)-0.5)*2;
+        mesh(c,mesh_i.x+1, mesh_i.y) = (rand() / double(RAND_MAX)-0.5)*2;
+        mesh(c,mesh_i.x, mesh_i.y+1) = (rand() / double(RAND_MAX)-0.5)*2;
+        mesh(c,mesh_i.x+1, mesh_i.y+1) = (rand() / double(RAND_MAX)-0.5)*2;
+      }
     //}
-  }
-  
-  std::sort(scores.begin(), scores.end());
-  
-  double th = std::max(scores[scores.size()*99/100],scores[scores.size()]*2);// med.median()*4.0 + step;
-  
-  for(auto ray : Idx_It_Dims(proxy, "x", "views")) {
-    bool ref_cam = true;
     
-    for(int i=proxy.dim("channels");i<=proxy.dim("cams");i++)
-      if (ray[i])
-        ref_cam = false;
-      
-    cv::Point2f p(proxy({0,ray.r("x",-1)}),
-                  proxy({1,ray.r("x",-1)}));
     
-    if (isnan(p.x) || isnan(p.y))
-      continue;
+    /*ceres::CostFunction* cost_function = 
+    LineZ3DirPinholeExtraError::Create(p.x, p.y);
+    problem.AddResidualBlock(cost_function,
+                            NULL,
+                            &extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}),
+                            &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
+                            //use only direction part!
+                            &lines({2,ray.r("x",i.cams_max)}));*/
     
-    double residuals[3];
+    ///////////////////// residual /////////////////////
     
-    if (ref_cam) {
-      LineZ3DirPinholeError err(p.x, p.y);
-      err.operator()<double>(&extrinsics({0,ray["views"]}), &lines({2,ray.r("x","cams")}), residuals);
-    }
-    else {
-      LineZ3DirPinholeExtraError err(p.x, p.y);
-      err.operator()<double>(&extrinsics({0,ray["views"]}), &extrinsics_rel({0,ray.r("channels","cams")}), &lines({2,ray.r("x","cams")}), residuals);
-    }
+    ceres::CostFunction* cost_function = 
+    LineZ3GenericMeshExtraError::Create(p.x, p.y, ws, j);
+    problem.AddResidualBlock(cost_function,
+                            NULL,
+                            &extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}),
+                            &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
+                            &lines({0,ray.r("x",i.cams_max)}),
+                            &lines({2,ray.r("x",i.cams_max)}),
+                            &mesh(0,mesh_i.x, mesh_i.y),
+                            &mesh(0,mesh_i.x+1, mesh_i.y),
+                            &mesh(0,mesh_i.x, mesh_i.y+1),
+                            &mesh(0,mesh_i.x+1, mesh_i.y+1)
+                            );
     
-    double err = sqrt(residuals[0]*residuals[0]+residuals[1]*residuals[1]);
-    //med.add(err);
-    if (err >= th) {
-      count++;
-      proxy({0,ray.r("x",-1)}) = std::numeric_limits<double>::quiet_NaN();
-      proxy({1,ray.r("x",-1)}) = std::numeric_limits<double>::quiet_NaN();
-    }
-    else
-      remain++;
-  }
-  
-  printf("median: %f\n", scores[scores.size()/2]);
-  printf("removed %d data points, %d remain\n", count, remain);
-  return count;*/
-}
+    /////////// FIXME/HACK
+/*
+        for(int i=0;i<3;i++) {
+          mesh(i,mesh_i.x, mesh_i.y) = 0;
+          mesh(i,mesh_i.x+1, mesh_i.y) = 0;
+          mesh(i,mesh_i.x, mesh_i.y+1) = 0;
+          mesh(i,mesh_i.x+1, mesh_i.y+1) = 0;
+        }
+        
+        problem.SetParameterBlockConstant(&mesh(0,mesh_i.x, mesh_i.y));
+        problem.SetParameterBlockConstant(&mesh(0,mesh_i.x+1, mesh_i.y));
+        problem.SetParameterBlockConstant(&mesh(0,mesh_i.x, mesh_i.y+1));
+        problem.SetParameterBlockConstant(&mesh(0,mesh_i.x+1, mesh_i.y+1));
+*/
+    
+    
+    ///////////////////// fix parameters /////////////////////
 
-static void _zline_problem_add_generic_lines(ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &lines, bool reproj_error_calc_only = false)
-{
-  cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
-  
-  //channels == 0 && cams == 0
-  for(auto ray : Idx_It_Dims(proxy, "x", "views")) {
-    bool ref_cam = true;
+    //ref cam extrinsics = 0
+   _ref_cam_fix_extrinsics(i, problem, ray, extrinsics_cams);
+   
+   if (ray["y"] == center.y && ray["x"] == center.x && !reproj_error_calc_only) {
+     //printf("setting pblock constant %p!\n", &lines({0,ray.r("x","cams")}));
+     //cout << lines({0,ray.r("x","cams")}) << lines({1,ray.r("x","cams")}) << lines({2,ray.r("x","cams")}) << lines({3,ray.r("x","cams")}) << "\n";
+     lines({0,ray.r("x",i.cams_max)}) = 0;
+     lines({1,ray.r("x",i.cams_max)}) = 0;
+     lines({2,ray.r("x",i.cams_max)}) = 0;
+     lines({3,ray.r("x",i.cams_max)}) = 0;
+     problem.SetParameterBlockConstant(&lines({0,ray.r("x",i.cams_max)}));
+     problem.SetParameterBlockConstant(&lines({2,ray.r("x",i.cams_max)}));
+   }
+        
+    ray_count++;
     
-    for(int i=proxy.dim("channels");i<=proxy.dim("cams");i++)
-      if (ray[i])
-        ref_cam = false;
-      
-    cv::Point2f p(proxy({0,ray.r("x",-1)}),
-                  proxy({1,ray.r("x",-1)}));
-    
-    if (isnan(p.x) || isnan(p.y))
-      continue;
-    
-    //keep center looking straight
-    if (ray["y"] == center.y && ray["x"] == center.x && !reproj_error_calc_only) {
-      ceres::CostFunction* cost_function =
-      LineZ3GenericCenterDirError::Create();
-      problem.AddResidualBlock(cost_function, NULL, 
-                              &lines({0,ray.r("x","cams")}));
-    }
-    
-    if (ray["y"] == center.y && (ray["x"] == center.x-1 || ray["x"] == center.x+1) && !reproj_error_calc_only) {
-      ceres::CostFunction* cost_function = LineZ3GenericCenterError::Create(1000000000000);
-      problem.AddResidualBlock(cost_function, NULL,
-                              &lines({0,ray.r("x","cams")}));
-    }
-    
-  
-    if (ref_cam) {
-      //std::cout << "process: " << ray << p << "\n";
-      
-
-      //regular line error (in x/y world direction)
-      ceres::CostFunction* cost_function = 
-      LineZ3GenericError::Create(p.x, p.y);
-      problem.AddResidualBlock(cost_function,
-                              NULL,
-                              &extrinsics({0,ray["views"]}),
-                              &lines({0,ray.r("x","cams")}));
-    }
-    else {
-        ceres::CostFunction* cost_function = 
-        LineZ3GenericExtraError::Create(p.x, p.y);
-        problem.AddResidualBlock(cost_function,
-                                NULL,
-                                &extrinsics({0,ray["views"]}),
-                                &extrinsics_rel({0,ray.r("channels","cams")}),
-                                &lines({0,ray.r("x","cams")}));
-    }
+    /*if (ray["y"] == center.y && ray["x"] == center.x) {
+      lines({2,ray.r(1,i.cams_max)}) = 0;
+      lines({3,ray.r(1,i.cams_max)}) = 0;
+      problem.SetParameterBlockConstant(&lines({2,ray.r("x",i.cams_max)}));
+    }*/
   }
+  
+  //fixate mesh at 3 points
+  
+  mesh_center *= 1.0/mesh_counter;
+  cv::Point2i mesh_i = mesh_center;  
+  
+  for(int i=0;i<3;i++)
+    mesh(i,mesh_i.x-2, mesh_i.y-2) = 0;
+  //printf("set constant mesh point: %dx%d (%f samples)\n", mesh_i.x-2, mesh_i.y-2,mesh_coverage(mesh_i.x-2, mesh_i.y-2));
+  problem.SetParameterBlockConstant(&mesh(0,mesh_i.x-2, mesh_i.y-2));
+  
+  for(int i=0;i<3;i++)
+    mesh(i,mesh_i.x+2, mesh_i.y-2) = 0;
+  //printf("set constant mesh point: %dx%d (%f samples)\n", mesh_i.x+2, mesh_i.y-2,mesh_coverage(mesh_i.x+2, mesh_i.y-2));
+  problem.SetParameterBlockConstant(&mesh(0,mesh_i.x+2, mesh_i.y-2));
+  
+  for(int i=0;i<3;i++)
+    mesh(i,mesh_i.x-2, mesh_i.y+2) = 0;
+  //printf("set constant mesh point: %dx%d (%f samples)\n", mesh_i.x-2, mesh_i.y+2,mesh_coverage(mesh_i.x-2, mesh_i.y+2));
+  problem.SetParameterBlockConstant(&mesh(0,mesh_i.x-2, mesh_i.y+2));
 }
 
 
@@ -1752,7 +1721,6 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
       
       
       //keep center looking straight
-      //TODO add mesh mod to center line functions...
       if (ray["y"] == center.y && ray["x"] == center.x && !reproj_error_calc_only) {
         //printf("setting pblock constant %p!\n", &lines({0,ray.r("x","cams")}));
         //cout << lines({0,ray.r("x","cams")}) << lines({1,ray.r("x","cams")}) << lines({2,ray.r("x","cams")}) << lines({3,ray.r("x","cams")}) << "\n";
@@ -2135,10 +2103,12 @@ private:
 #endif
 
 
-double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
+double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, double proj_weight, double min_weight = non_center_rest_weigth)
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
+  
+  options.minimizer_progress_to_stdout = true;
   
   _zline_problem_add_pinhole_lines(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, proj, NULL, true, min_weight, proj_weight);
   
@@ -2150,19 +2120,19 @@ double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
-double solve_non_central(const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel)
+double solve_all(const calib_infos &i, ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &mesh)
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
-  double dir[3] = {0,0,0};
   
-  _zline_problem_add_generic_lines(problem, proxy, extrinsics, extrinsics_rel, lines);
-  _zline_problem_add_center_errors(problem, lines, proxy);
+  options.minimizer_progress_to_stdout = true;
   
-  printf("solving unconstrained problem\n");
+  _zline_problem_add_lines_gen_mesh(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, mesh, false);
+  
+  printf("solving full problem\n");
   ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << "\n";
-  printf("\nunconstrained rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
+  printf("\ncalib rms ~%fpx\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
+
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
@@ -2296,30 +2266,6 @@ double correct_cam_center(ceres::Solver::Options options, const Mat_<float>& pro
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
-
-
-
-double refine_pinhole_ispace(const ceres::Solver::Options &options, const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> proj, double proj_weight, double min_weight = non_center_rest_weigth)
-{
-  ceres::Solver::Summary summary;
-  ceres::Problem problem;
-  double dir[3] = {0,0,0};
-  
-  _zline_problem_add_pinhole_lines_is(problem, img_size, proxy, extrinsics, extrinsics_rel, lines, NULL, true, min_weight);
-  
-  printf("solving pinhole problem (proj w = %f...\n", proj_weight);
-  ceres::Solve(options, &problem, &summary);
-  std::cout << summary.FullReport() << "\n";
-  printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
-  
-  return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
-}
-
-int filter_pinhole(const Mat_<float>& proxy, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> proj, double threshold)
-{
-  return _zline_problem_filter_pinhole_lines(proxy, extrinsics, extrinsics_rel, lines, threshold);
-}
-
 /*
  * optimize together:
  *  - per image camera movement (world rotation and translation)
@@ -2416,8 +2362,8 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   }
   if (proxy["views"] > 1) */
     options.max_num_iterations = 5000;
-  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, proj_constr_weight, non_center_rest_weigth);
+  solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
+  solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, proj_constr_weight, non_center_rest_weigth);
   
   
   
@@ -2430,7 +2376,8 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   
   Mat_<double> target_mesh({3, 40, 40});
   //FIXME target dimension * marker_size!
-  cv::Point2i target_size(20,20);
+  cv::Point2i target_size(1200,1200);
+  i.target_size = target_size;
   
   cvMat(target_mesh).setTo(0);
   for(auto pos : Idx_It_Dims(target_mesh, 1, 2)) {
@@ -2441,7 +2388,9 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   target_mesh(2,2,0) = 0;
   target_mesh(2,0,1) = 0;
   
-  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
+  solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, 0, 0);
+  
+  solve_all(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, target_mesh);
   
   delete mesh;
   
@@ -2457,7 +2406,54 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
         }
   }
   
+  Mesh target_vis = mesh_subdiv_plane(target_mesh[1],target_mesh[2]);
   
+  target_vis.scale(double(target_size.x)/target_mesh[1]);
+  
+  for(int j=0;j<target_mesh[1];j++) {
+    for(int i=0;i<target_mesh[2];i++) {
+      if (target_mesh(0,i,j) != 0.0 || target_mesh(1,i,j) != 0.0 ||  target_mesh(2,i,j) != target_size.x/10)
+        printf("[%2.4f %2.4f %2.4f]", target_mesh(0,i,j), target_mesh(1,i,j), target_mesh(2,i,j));
+      target_vis.V(j*target_mesh[1]+i, 0) += target_mesh(0,i,j);
+      target_vis.V(j*target_mesh[1]+i, 1) += target_mesh(1,i,j);
+      target_vis.V(j*target_mesh[1]+i, 2) += target_mesh(2,i,j);
+    }
+  }
+  delete mesh;
+  target_vis.writeOBJ("target.obj");
+  if (vis)
+    target_vis.show(true);
+  
+  for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
+    if (lines({0, line_pos.r(1,-1)}) == 0 &&
+        lines({1, line_pos.r(1,-1)}) == 0 &&
+        lines({2, line_pos.r(1,-1)}) == 0.01 &&
+        lines({3, line_pos.r(1,-1)}) == 0.01) {
+          lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          lines({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+        }
+  }
+  
+  Mesh line_mesh;
+      
+  for(auto line_pos : Idx_It_Dims(lines,"x","y")) {
+    Eigen::Vector3d origin(lines({0,line_pos.r("x","y"),0,0}),lines({1,line_pos.r("x","y"),0,0}),0.0);
+    Eigen::Vector3d dir(lines({2,line_pos.r("x","y"),0,0}),lines({3,line_pos.r("x","y"),0,0}),-1.0);
+    
+    if (!isnan(origin(0))) {
+      dir *= 5.0;
+      //dir(2) *= 0.1;
+      Mesh line = mesh_line(origin-dir,origin+dir);
+      //cout << origin << dir << "\n";
+      line_mesh.merge(line);
+    }
+  }
+  if (vis)
+    line_mesh.show(true);
+  
+  line_mesh.writeOBJ("center.obj");
   
   return 0.0;
   
