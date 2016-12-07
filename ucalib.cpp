@@ -1298,7 +1298,7 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
     
     cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*i.img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*i.img_size.y/proxy_size.y);
     
-    if (isnan(p.x) || isnan(p.y))
+    if (std::isnan(p.x) || std::isnan(p.y))
       continue;
     
         
@@ -1377,7 +1377,7 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
     
     cv::Point2d ip = cv::Point2d((ray["x"]+0.5-proxy_size.x*0.5)*i.img_size.x/proxy_size.x,(ray["y"]+0.5-proxy_size.y*0.5)*i.img_size.y/proxy_size.y);
     
-    if (isnan(p.x) || isnan(p.y))
+    if (std::isnan(p.x) || std::isnan(p.y))
       continue;
     
         
@@ -1612,7 +1612,7 @@ static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const
     cv::Point2f p(proxy({0,ray.r("x",-1)}),
                   proxy({1,ray.r("x",-1)}));
     
-    if (isnan(p.x) || isnan(p.y))
+    if (std::isnan(p.x) || std::isnan(p.y))
       continue;
   
     
@@ -1940,7 +1940,7 @@ double calc_line_residuals(const Mat_<float>& proxy, Mat_<double> &extrinsics, M
         cv::Point2f p(proxy({0,ray.r("x","y"),view.r("channels",-1)}),
                       proxy({1,ray.r("x","y"),view.r("channels",-1)}));
         
-        if (isnan(p.x) || isnan(p.y))
+        if (std::isnan(p.x) || std::isnan(p.y))
           continue;
         
         
@@ -2055,7 +2055,7 @@ static void _zline_problem_add_center_errors(ceres::Problem &problem, Mat_<doubl
 {
   if (center_constr_weight != 0.0)
     for(auto pos : Idx_It_Dims(lines, "x", "cams")) {
-      if (!isnan(lines({0,pos.r("x","cams")}))) {
+      if (!std::isnan(lines({0,pos.r("x","cams")}))) {
         ceres::CostFunction* cost_function = LineZ3GenericCenterError::Create(center_constr_weight*sqrt(proxy["views"]));
         problem.AddResidualBlock(cost_function, NULL,
                                 &lines({0,pos.r("x","cams")}));
@@ -2066,7 +2066,7 @@ static void _zline_problem_add_center_errors(ceres::Problem &problem, Mat_<doubl
 static void _add_find_center_errors(ceres::Problem &problem, Mat_<double> &lines, double *offset)
 {  
   for(auto pos : Idx_It_Dims(lines, "x", "cams"))
-    if (!isnan(lines({0,pos.r("x","cams")}))) {
+    if (!std::isnan(lines({0,pos.r("x","cams")}))) {
       ceres::CostFunction* cost_function = FindCenterError::Create(&lines({0,pos.r("x","cams")}));
       problem.AddResidualBlock(cost_function, NULL,
                             offset);
@@ -2502,7 +2502,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
     Eigen::Vector3d origin(lines({0,line_pos.r("x","y"),0,0}),lines({1,line_pos.r("x","y"),0,0}),0.0);
     Eigen::Vector3d dir(lines({2,line_pos.r("x","y"),0,0}),lines({3,line_pos.r("x","y"),0,0}),-1.0);
     
-    if (!isnan(origin(0))) {
+    if (!std::isnan(origin(0))) {
       dir *= 5.0;
       //dir(2) *= 0.1;
       Mesh line = mesh_line(origin-dir,origin+dir);
