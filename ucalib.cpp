@@ -1194,9 +1194,7 @@ struct calib_infos
   int views_min, views_max;
 };
 
-int trans_min = 100;
-
-static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &lines, Mat_<double> &proj, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth, double proj_weight = 1.0, bool eval = false)
+static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &lines, Mat_<double> &proj, ceres::LossFunction *loss = NULL, bool falloff = true, double min_weight = non_center_rest_weigth, double proj_weight = 1.0)
 {
   cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
   
@@ -1209,29 +1207,12 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
   for(auto ray : Idx_It_Dims(proxy, 1, -1)) {
     bool ref_cam = true;
       
-    //cams
-    /*if (ray[3])
-      continue;*/
     
-    //translation views (only first target view evals)
-    /*if (ray[5] && ray[4])
-      continue;*/
-    
-    //translation views
-    if (ray[4] > trans_min)
-      continue;
-    
-    /*if (ray[5] > 1)
-      continue;*/
-    
+    //TODO fix somehow?
     /*if (ray["cams"] > _calib_cams_limit)
       continue;
     if (ray["views"] > _calib_views_limit)
       continue;*/
-    
-    /*printf("cams %d-%d\n", i.cams_min, i.cams_max);
-    printf("views %d-%d\n", i.views_min, i.views_max);
-    cout << extrinsics_views << "\n";*/
     
     for(int j=i.cams_min;j<=i.cams_max;j++)
       if (ray[j])
@@ -1298,7 +1279,7 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
                                 //use only direction part!
                                 &lines({2,ray.r("x",i.cams_max)}));
         
-        if (eval) {
+        /*if (eval) {
           double *params[2] = {&extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
           &lines({2,ray.r("x",i.cams_max)})};
           double res[2];
@@ -1314,7 +1295,7 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
             proxy({0,ray.r("x",-1)}) = std::numeric_limits<float>::quiet_NaN();
             proxy({1,ray.r("x",-1)}) = std::numeric_limits<float>::quiet_NaN();
           }
-        }
+        }*/
         
         if (proj_weight) {
           double w_proj;
@@ -1348,7 +1329,7 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
                                 //use only direction part!
                                 &lines({2,ray.r("x",i.cams_max)}));
         
-        if (eval) {
+        /*if (eval) {
           double *params[3] = {&extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}),
           &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
           &lines({2,ray.r("x",i.cams_max)})};
@@ -1367,7 +1348,7 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
             proxy({0,ray.r("x",-1)}) = std::numeric_limits<float>::quiet_NaN();
             proxy({1,ray.r("x",-1)}) = std::numeric_limits<float>::quiet_NaN();
           }
-        }
+        }*/
         
         
         if (proj_weight) {
@@ -2273,26 +2254,13 @@ double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
-  double dir[3] = {0,0,0};
   
-  printf("target rot: %fx%fx%f\n", extrinsics_views(0), extrinsics_views(1), extrinsics_views(2));
   _zline_problem_add_pinhole_lines(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, proj, NULL, true, min_weight, proj_weight);
-  //if (proj_weight > 0.0)
-    //_zline_problem_add_proj_error(problem, lines, img_size, proj, proj_weight, 0.0);
-  //_zline_problem_add_lin_views(problem, extrinsics_rel, dir);
-  
-  options.function_tolerance = 1e-20;
   
   printf("solving pinhole problem (proj w = %f...\n", proj_weight);
   ceres::Solve(options, &problem, &summary);
-  printf("target rot: %fx%fx%f (%p)\n", extrinsics_views(0), extrinsics_views(1), extrinsics_views(2), &extrinsics_views(0));
-  //std::cout << summary.FullReport() << "\n";
   printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
-  
-  if (min_weight == 0 && proj_weight == 0)
-    _zline_problem_add_pinhole_lines(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, proj, NULL, true, min_weight, proj_weight, true);
-  
-  printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
+
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
@@ -2585,17 +2553,6 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   target_mesh(2,1,0) = 0;
   target_mesh(2,2,0) = 0;
   target_mesh(2,0,1) = 0;
-  
-  
-  /*for(trans_min = 1;trans_min<=30;trans_min++) {
-    printf("trans_min: %d\n", trans_min);
-    solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
-    printf("trans_min was: %d\n", trans_min);
-  }*/
-  trans_min = 30;
-  solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
-  
-  printf("repeat!\n");
   
   solve_pinhole(i, options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, 0, 0);
   
