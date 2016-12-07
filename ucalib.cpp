@@ -2392,7 +2392,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   
   solve_all(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, target_mesh);
   
-  delete mesh;
+  //delete mesh;
   
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     if (lines({0, line_pos.r(1,-1)}) == 0 &&
