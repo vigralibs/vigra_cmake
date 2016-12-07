@@ -1525,6 +1525,65 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
     mesh(i,mesh_i.x-2, mesh_i.y+2) = 0;
   //printf("set constant mesh point: %dx%d (%f samples)\n", mesh_i.x-2, mesh_i.y+2,mesh_coverage(mesh_i.x-2, mesh_i.y+2));
   problem.SetParameterBlockConstant(&mesh(0,mesh_i.x-2, mesh_i.y+2));
+  
+  
+  float min_coverage = 4;
+  float mesh_smoothness = 100;
+  
+  if (!reproj_error_calc_only)
+    for(auto pos : Idx_It_Dims(mesh, 1, 2)) {
+      double w = 1;
+      /*if (!pos[1])
+        printf("\n");
+      if (mesh_coverage(pos[1],pos[2]) > 0.0)
+        printf("%3.1f ", mesh_coverage(pos[1],pos[2]));*/
+      if (mesh_coverage(pos[1],pos[2]) < min_coverage && mesh_coverage(pos[1],pos[2]) > 0.0 && pos[1]+1 < mesh[1] && mesh_coverage(pos[1]+1,pos[2]) > 0.0) {
+        //printf("restrict %dx%d\n", pos]});
+        w = mesh_smoothness/(mesh_coverage(pos[1],pos[2])+mesh_coverage(pos[1]+1,pos[2]));
+        ceres::CostFunction* cost_function = 
+        MeshSmoothError::Create(w);
+        problem.AddResidualBlock(cost_function,
+                                 NULL,
+                                 &mesh(0,pos[1], pos[2]),
+                                 &mesh(0,pos[1]+1, pos[2]));
+        //printf("add mesh constr to %d x %d\n", pos[1], pos[2]);
+      }
+      
+      if (mesh_coverage(pos[1],pos[2]) < min_coverage && mesh_coverage(pos[1],pos[2]) > 0.0 && pos[1]-1 >= 0 && mesh_coverage(pos[1]-1,pos[2]) > 0.0) {
+        //printf("restrict %dx%d\n", pos]});
+        w = mesh_smoothness/(mesh_coverage(pos[1],pos[2])+mesh_coverage(pos[1]-1,pos[2]));
+        ceres::CostFunction* cost_function = 
+        MeshSmoothError::Create(w);
+        problem.AddResidualBlock(cost_function,
+                                 NULL,
+                                 &mesh(0,pos[1], pos[2]),
+                                 &mesh(0,pos[1]-1, pos[2]));
+        //printf("add mesh constr to %d x %d\n", pos[1], pos[2]);
+      }
+      
+      if (mesh_coverage(pos[1],pos[2]) < min_coverage && mesh_coverage(pos[1],pos[2]) > 0.0 && pos[2]+1 < mesh[2] && mesh_coverage(pos[1],pos[2]+1) > 0.0) {
+        w = mesh_smoothness/(mesh_coverage(pos[1],pos[2])+mesh_coverage(pos[1],pos[2]+1));
+        ceres::CostFunction* cost_function = 
+        MeshSmoothError::Create(w);
+        problem.AddResidualBlock(cost_function,
+                                 NULL,
+                                 &mesh(0,pos[1], pos[2]),
+                                 &mesh(0,pos[1], pos[2]+1));
+        //printf("add mesh constr to %d x %d\n", pos[1], pos[2]);
+      }
+      
+      
+      if (mesh_coverage(pos[1],pos[2]) < min_coverage && mesh_coverage(pos[1],pos[2]) > 0.0 && pos[2]-1 >= 0 && mesh_coverage(pos[1],pos[2]-1) > 0.0) {
+        w = mesh_smoothness/(mesh_coverage(pos[1],pos[2])+mesh_coverage(pos[1],pos[2]-1));
+        ceres::CostFunction* cost_function = 
+        MeshSmoothError::Create(w);
+        problem.AddResidualBlock(cost_function,
+                                 NULL,
+                                 &mesh(0,pos[1], pos[2]),
+                                 &mesh(0,pos[1], pos[2]-1));
+        //printf("add mesh constr to %d x %d\n", pos[1], pos[2]);
+      }
+    }
 }
 
 
@@ -2363,7 +2422,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   if (proxy["views"] > 1) */
     options.max_num_iterations = 5000;
   solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, proj_constr_weight, non_center_rest_weigth);
+  //solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, proj_constr_weight, non_center_rest_weigth);
   
   
   
@@ -2388,7 +2447,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   target_mesh(2,2,0) = 0;
   target_mesh(2,0,1) = 0;
   
-  solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, 0, 0);
+  //solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, 0, 0);
   
   solve_all(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, target_mesh);
   
@@ -2397,8 +2456,9 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     if (lines({0, line_pos.r(1,-1)}) == 0 &&
         lines({1, line_pos.r(1,-1)}) == 0 &&
-        lines({2, line_pos.r(1,-1)}) == 0.01 &&
-        lines({3, line_pos.r(1,-1)}) == 0.01) {
+        //FIXME TODO detection!
+        lines({2, line_pos.r(1,-1)}) == (line_pos[1]-cl_x)*0.01 &&
+        lines({3, line_pos.r(1,-1)}) == (line_pos[2]-cl_y)*0.01) {
           lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
           lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
           lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
@@ -2427,8 +2487,8 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
     if (lines({0, line_pos.r(1,-1)}) == 0 &&
         lines({1, line_pos.r(1,-1)}) == 0 &&
-        lines({2, line_pos.r(1,-1)}) == 0.01 &&
-        lines({3, line_pos.r(1,-1)}) == 0.01) {
+        lines({2, line_pos.r(1,-1)}) == (line_pos[1]-cl_x)*0.01 &&
+        lines({3, line_pos.r(1,-1)}) == (line_pos[2]-cl_y)*0.01) {
           lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
           lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
           lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
