@@ -973,14 +973,14 @@ struct LineZ3GenericMeshExtraError {
     p_c[1] = (p[1] - (o[1] + p[2]*d[1]));
     p_c[2] = T(0);
     
-    /*ceres::AngleAxisRotatePoint(r_neg, p_c, p_t);
+    ceres::AngleAxisRotatePoint(r_neg, p_c, p_t);
     
     //TODO check p_t[2] == 0 -> no-not the case...
     residuals[0] = (T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1]) * T(1/0.1);
-    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) * T(1/0.1);*/
+    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) * T(1/0.1);
     
-     residuals[0] = p_c[0];
-     residuals[1] = p_c[1];
+//     residuals[0] = p_c[0];
+//     residuals[1] = p_c[1];
     
     return true;
   }
