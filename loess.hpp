@@ -19,7 +19,7 @@ template <int x_degree, int y_degree> struct Poly2dError {
   template <typename T>
   bool operator()(const T* const p,
                   T* residuals) const {
-    T xvars[x_degree];
+    T xvars[x_degree+1];
     T yvar = T(1.0);
     xvars[0] = T(1.0);
     for(int i=1;i<x_degree;i++)
@@ -62,7 +62,7 @@ template <int x_degree, int y_degree> struct PolyPers2dError {
     warped[0] /= warped[2];
     warped[1] /= warped[2];
 
-    T xvars[x_degree];
+    T xvars[x_degree+1];
     T yvar = T(1.0);
     xvars[0] = T(1.0);
     for(int i=1;i<x_degree;i++)
@@ -149,7 +149,7 @@ template <int x_degree, int y_degree> struct PolyPers2dErrorTriangle {
     warped[0] /= warped[2];
     warped[1] /= warped[2];
 
-    T xvars[x_degree];
+    T xvars[x_degree+1];
     T yvar = T(1.0);
     xvars[0] = T(1.0);
     for(int i=1;i<x_degree;i++)
@@ -263,7 +263,7 @@ template<int x_degree, int y_degree> cv::Point2d eval_2d_pers_poly_2d(cv::Point2
   warped[0] /= warped[2];
   warped[1] /= warped[2];
 
-  double xvars[x_degree];
+  double xvars[x_degree+1];
   double yvar = 1.0;
   xvars[0] = 1.0;
   for(int i=1;i<x_degree;i++)
@@ -517,7 +517,7 @@ template<int x_degree, int y_degree> double fit_2d_pers_poly_2d(std::vector<cv::
 
 template<int x_degree, int y_degree> cv::Point2f eval_2d_poly_2d(cv::Point2f p, double *coeffs)
 {
-  double xvars[x_degree];
+  double xvars[x_degree+1];
   double yvar = 1.0;
   xvars[0] = 1.0;
   for(int i=1;i<x_degree;i++)
