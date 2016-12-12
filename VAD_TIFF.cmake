@@ -1,5 +1,17 @@
 set(GIT_REPO "https://github.com/vadz/libtiff.git")
 
+function(vad_system)
+  vad_system_default(${ARGN})
+  if(TIFF_FOUND AND NOT TARGET TIFF::TIFF)
+    # Some earlier versions of cmake do not provide the TIFF::TIFF target.
+    message(STATUS "Creating the TIFF::TIFF imported target.")
+    add_library(TIFF::TIFF UNKNOWN IMPORTED)
+    set_target_properties(TIFF::TIFF PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${TIFF_INCLUDE_DIR}")
+    set_property(TARGET TIFF::TIFF APPEND PROPERTY IMPORTED_LOCATION "${TIFF_LIBRARIES}")
+    make_imported_targets_global()
+  endif()
+endfunction()
+
 function(vad_live)
   git_clone(TIFF)
   if(VAD_PREFER_STATIC OR VAD_TIFF_PREFER_STATIC)
