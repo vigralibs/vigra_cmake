@@ -20,7 +20,7 @@ function(vad_live)
   endif()
   add_subdirectory("${VAD_EXTERNAL_ROOT}/TIFF" "${VAD_EXTERNAL_ROOT}/TIFF/build_external_dep")
   add_library(TIFF INTERFACE)
-  set_target_properties(TIFF PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/TIFF/libtiff")
+  set_target_properties(TIFF PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/TIFF/libtiff;${VAD_EXTERNAL_ROOT}/TIFF/build_external_dep/libtiff")
   target_link_libraries(TIFF INTERFACE tiff)
   # The TIFF live CMake auto-detects libraries such as ZLIB, LibLZMA and JPEG. If they are found, we will
   # add them to the TIFF interface.
