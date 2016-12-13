@@ -32,6 +32,8 @@ function(vad_live)
         message(STATUS "Setting ZLIB_LIBRARIES to the zlib target from the live dependency.")
         set(ZLIB_LIBRARIES zlib CACHE STRING "")
     endif()
+    # NOTE: ZLIB_LIBRARY is not part of the public info exported by FindZLIB, but some packages use it nevertheless.
+    set(ZLIB_LIBRARY "${ZLIB_LIBRARIES}" CACHE STRING "")
     mark_as_advanced(FORCE ZLIB_INCLUDE_DIRS)
     mark_as_advanced(FORCE ZLIB_LIBRARIES)
     # Fetch the full version string from zlib.h, and populate the versioning variable provided by FindZLIB.

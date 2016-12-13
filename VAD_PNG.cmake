@@ -5,7 +5,9 @@ set(GIT_REPO "https://github.com/glennrp/libpng.git")
 function(vad_live)
   # Clone and add the subdirectory.
   git_clone(PNG)
+  set(SKIP_INSTALL_EXPORT ON CACHE BOOL "")
   add_subdirectory("${VAD_EXTERNAL_ROOT}/PNG" "${VAD_EXTERNAL_ROOT}/PNG/build_external_dep")
+  unset(SKIP_INSTALL_EXPORT CACHE)
 
   # We are now going to reconstruct the targets/variables provided by the standard FindPNG module,
   add_library(_VAD_PNG_STUB INTERFACE)
@@ -27,6 +29,8 @@ function(vad_live)
     endif()
   endif()
   set_target_properties(_VAD_PNG_STUB PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${PNG_DEFINITIONS}")
+  # PNG has a mandatory dependency on ZLIB.
+  target_link_libraries(_VAD_PNG_STUB INTERFACE ZLIB::ZLIB)
   add_library(PNG::PNG ALIAS _VAD_PNG_STUB)
   set(PNG_FOUND TRUE CACHE INTERNAL "")
 
