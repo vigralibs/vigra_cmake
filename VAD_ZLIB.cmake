@@ -34,8 +34,12 @@ function(vad_live)
     endif()
     # NOTE: ZLIB_LIBRARY is not part of the public info exported by FindZLIB, but some packages use it nevertheless.
     set(ZLIB_LIBRARY "${ZLIB_LIBRARIES}" CACHE STRING "")
+    # Same for the include dir.
+    set(ZLIB_INCLUDE_DIR "${ZLIB_INCLUDE_DIRS}" CACHE STRING "")
     mark_as_advanced(FORCE ZLIB_INCLUDE_DIRS)
     mark_as_advanced(FORCE ZLIB_LIBRARIES)
+    mark_as_advanced(FORCE ZLIB_INCLUDE_DIR)
+    mark_as_advanced(FORCE ZLIB_LIBRARY)
     # Fetch the full version string from zlib.h, and populate the versioning variable provided by FindZLIB.
     file(READ ${VAD_EXTERNAL_ROOT}/ZLIB/zlib.h _zlib_h_contents)
     string(REGEX REPLACE ".*#define[ \t]+ZLIB_VERSION[ \t]+\"([-0-9A-Za-z.]+)\".*"
