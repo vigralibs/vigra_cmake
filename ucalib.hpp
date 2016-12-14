@@ -3,6 +3,10 @@
 
 #include <metamat/mat.hpp>
 
+#ifdef UCALIB_WITH_MM_MESH
+  #include <mm-mesh/mesh.hpp>
+#endif
+
 cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f);
 void get_undist_map_for_depth(MetaMat::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f);
 
@@ -25,7 +29,10 @@ namespace ucalib {
   enum Flags {
     CENTRAL = 1, 
     PLANAR = 2,
-    MAX = 4
+    LIVE = 4, //live opengl feedback
+    SHOW_TARGET = 8, //live opengl feedback
+    SHOW_CENTER = 16, //live opengl feedback
+    MAX = 32
   };
   
   enum Features
@@ -38,7 +45,7 @@ namespace ucalib {
   class Options {
   public:
     Options(int flags) : _flags(flags) {}
-    int flags() { return _flags; }
+    int flags() const { return _flags; }
   private:
     int _flags;
   };
@@ -66,6 +73,7 @@ namespace ucalib {
     //virtual cv::Size img_size() const = 0;
     virtual int features() const { return 0; };
     virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string) = 0;
+    virtual Mesh target_mesh() const = 0;
     
     virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const = 0;
     

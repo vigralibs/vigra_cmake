@@ -35,6 +35,42 @@ int _calib_views_limit = 1000;
 using namespace std;
 using namespace MetaMat;
 
+namespace ucalib {
+
+  class RayCalib : public Calib {
+  public:
+    RayCalib(Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &rays, cv::Point2i img_size);
+    RayCalib() {};
+    RayCalib(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string);
+    //empty idx specifies first cam or view respectively
+    virtual Cam *cam(const Idx &cam) const;
+    //empty idx size is extrinsics+views size!
+    virtual Cam *cam(const Idx &cam, const Idx &view) const;
+    virtual const Mat_<double> &extrinsics_cams() const;
+    virtual const Mat_<double> &extrinsics_views() const;
+    virtual const Mat_<double> &proj();
+    virtual const Mat_<double> &rays();
+    //virtual cv::Size img_size() const;
+    virtual int features() const { return Depth_Required | Rectification; };
+    virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string);
+    virtual Mesh target_mesh() const;
+    
+    virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
+    
+    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts);
+    friend double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i img_size, ucalib::RayCalib &c, bool vis, const Mat_<float>& j, const ucalib::Options &opts);
+    friend class RayCam;
+  private:
+    //cv::Point2i _img_size;
+    Mat_<double> _rays; //same size as cam_extrinsics
+    Mat_<double> _cams; //same size as cam_extrinsics
+    Mat_<double> _views; //same size as cam_extrinsics
+    Mat_<double> _proj; //same size as cam_extrinsics
+    Mat_<double> _mesh; //same size as cam_extrinsics
+  };
+  
+}
+
 cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f)
 {
   cv::Point2d l_o(line[0], line[1]);
@@ -2325,12 +2361,14 @@ double correct_cam_center(ceres::Solver::Options options, const Mat_<float>& pro
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
+namespace ucalib {
+
 /*
  * optimize together:
  *  - per image camera movement (world rotation and translation)
  *  - individual lines (which do not need to converge in an optical center
  */
-double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i img_size, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, bool vis, const Mat_<float>& j)
+double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i img_size, ucalib::RayCalib &c, bool vis, const Mat_<float>& j, const ucalib::Options &opts)
 {
   calib_infos i;
   
@@ -2350,13 +2388,11 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   
   //options.minimizer_progress_to_stdout = true;
   
-  lines.create({IR(4, "line"), proxy.r(1, i.cams_max)});
-  extrinsics_cams.create({IR(6, "extrinsics"), proxy.r(i.cams_min, i.cams_max)});
-  //cout << "extrinsics_cams: " << extrinsics_cams << "\n";
-  extrinsics_views.create({IR(6, "extrinsics"), proxy.r(i.views_min,i.views_max)});
-  //cout << "extrinsics_views: " << extrinsics_views << "\n";
+  c._rays.create({IR(4, "line"), proxy.r(1, i.cams_max)});
+  c._cams.create({IR(6, "extrinsics"), proxy.r(i.cams_min, i.cams_max)});
+  c._views.create({IR(6, "extrinsics"), proxy.r(i.views_min,i.views_max)});
   
-  printf("calibrate with %d views of %d cams\n", extrinsics_views.total()/6, extrinsics_cams.total()/6);
+  printf("calibrate with %d views of %d cams\n", c._views.total()/6, c._cams.total()/6);
   
   //for threading!
   //options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -2368,28 +2404,28 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   options.num_threads = 8;
   options.num_linear_solver_threads = 8;
   
-  proj.create({2,proxy.r(i.cams_min,i.cams_max)});
+  c._proj.create({2,proxy.r(i.cams_min,i.cams_max)});
   
-  for(auto pos : Idx_It_Dims(proj, 0, -1))
-    proj(pos) = 1000;
+  for(auto pos : Idx_It_Dims(c._proj, 0, -1))
+    c._proj(pos) = 1000;
   
-  for(auto cam_pos : Idx_It_Dims(extrinsics_views, 1, -1)) {
+  for(auto cam_pos : Idx_It_Dims(c._views, 1, -1)) {
     for(int i=0;i<5;i++)
-      extrinsics_views({i, cam_pos.r(1,-1)}) = 0;
-    extrinsics_views({5, cam_pos.r(1,-1)}) = 1000;
+      c._views({i, cam_pos.r(1,-1)}) = 0;
+    c._views({5, cam_pos.r(1,-1)}) = 1000;
     //extrinsics({2, cam_pos["views"]}) = M_PI*0.5;
   }
 
-  for(auto pos : Idx_It_Dims(extrinsics_cams, 0, -1))
-    extrinsics_cams(pos) = 0;
+  for(auto pos : Idx_It_Dims(c._cams, 0, -1))
+    c._cams(pos) = 0;
   
-  int cl_x = lines[1]/2;
-  int cl_y = lines[2]/2;
-  for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
-    lines({0, line_pos.r(1,-1)}) = 0;
-    lines({1, line_pos.r(1,-1)}) = 0;
-    lines({2, line_pos.r(1,-1)}) = (line_pos[1]-cl_x)*0.01;
-    lines({3, line_pos.r(1,-1)}) = (line_pos[2]-cl_y)*0.01;
+  int cl_x = c._rays[1]/2;
+  int cl_y = c._rays[2]/2;
+  for(auto line_pos : Idx_It_Dims(c._rays, 1, -1)) {
+    c._rays({0, line_pos.r(1,-1)}) = 0;
+    c._rays({1, line_pos.r(1,-1)}) = 0;
+    c._rays({2, line_pos.r(1,-1)}) = (line_pos[1]-cl_x)*0.01;
+    c._rays({3, line_pos.r(1,-1)}) = (line_pos[2]-cl_y)*0.01;
   }
   
   /*if (proxy["views"] > 1) {
@@ -2400,107 +2436,76 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   //mesh display
 #ifdef MM_MESH_WITH_VIEWER 
   Mesh *mesh = new Mesh();
-  _mesh_updater callback(mesh, &extrinsics_cams, &extrinsics_views, &lines, &proj);
+  _mesh_updater callback(mesh, &c._cams, &c._views, &c._rays, &c._proj);
     
   options.callbacks.push_back(&callback);
   options.update_state_every_iteration = true;
   
-  update_cams_mesh(*mesh, extrinsics_cams, extrinsics_views, lines, proj);
+  update_cams_mesh(*mesh, c._cams, c._views, c._rays, c._proj);
     
-  if (vis)
+  if (opts.flags() & ucalib::LIVE)
     mesh->show(false);
   
 #endif
 
-  //FIXME first selection of views MUST contain center line(s)
-  
-  /*options.max_num_iterations = 100;
-  _calib_cams_limit = 0;
-  for(_calib_views_limit=proxy["views"]/2;_calib_views_limit<proxy["views"];_calib_views_limit=std::min(int(_calib_views_limit)+1,proxy["views"])) {
-    solve_pinhole(options, proxy, lines, img_size, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  }
-  if (proxy["views"] > 1) */
-    options.max_num_iterations = 5000;
-  solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, strong_proj_constr_weight, non_center_rest_weigth);
-  //solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, proj_constr_weight, non_center_rest_weigth);
-  
-  
-  
-  
-  //options.function_tolerance = 1e-20;
-  //options.minimizer_progress_to_stdout = true;
-  //FIXME disable until we port extrinsics constraint (center ray == 0) back to it
   options.max_num_iterations = 5000;
   
+  solve_pinhole(i, options, proxy, c._rays, c._cams, c._views, c._proj, strong_proj_constr_weight, non_center_rest_weigth);
   
-  Mat_<double> target_mesh({3, 40, 40});
+  
+  c._mesh.create({3, 40, 40});
+  //FIXME automaticall calc usefule size or get from options?!
   //FIXME target dimension * marker_size!
   cv::Point2i target_size(1200,1200);
   i.target_size = target_size;
   
-  cvMat(target_mesh).setTo(0);
-  for(auto pos : Idx_It_Dims(target_mesh, 1, 2)) {
-    target_mesh({2,pos.r(1,2)}) = target_size.x/10;
+  cvMat(c._mesh).setTo(0);
+  for(auto pos : Idx_It_Dims(c._mesh, 1, 2)) {
+    c._mesh({2,pos.r(1,2)}) = target_size.x/10;
   }
-  target_mesh(2,0,0) = 0;
-  target_mesh(2,1,0) = 0;
-  target_mesh(2,2,0) = 0;
-  target_mesh(2,0,1) = 0;
+  c._mesh(2,0,0) = 0;
+  c._mesh(2,1,0) = 0;
+  c._mesh(2,2,0) = 0;
+  c._mesh(2,0,1) = 0;
   
-  //solve_pinhole(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, 0, 0);
+  //solve_pinhole(i, options, proxy, lines, c._cams, c._views, proj, 0, 0);
   
-  solve_all(i, options, proxy, lines, extrinsics_cams, extrinsics_views, proj, target_mesh);
+  solve_all(i, options, proxy, c._rays, c._cams, c._views, c._proj, c._mesh);
   
-  //delete mesh;
-  
-  for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
-    if (lines({0, line_pos.r(1,-1)}) == 0 &&
-        lines({1, line_pos.r(1,-1)}) == 0 &&
-        //FIXME TODO detection!
-        lines({2, line_pos.r(1,-1)}) == (line_pos[1]-cl_x)*0.01 &&
-        lines({3, line_pos.r(1,-1)}) == (line_pos[2]-cl_y)*0.01) {
-          lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-          lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-          lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-          lines({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-        }
-  }
-  
-  Mesh target_vis = mesh_subdiv_plane(target_mesh[1],target_mesh[2]);
-  
-  target_vis.scale(double(target_size.x)/target_mesh[1]);
-  
-  for(int j=0;j<target_mesh[1];j++) {
-    for(int i=0;i<target_mesh[2];i++) {
-      if (target_mesh(0,i,j) != 0.0 || target_mesh(1,i,j) != 0.0 ||  target_mesh(2,i,j) != target_size.x/10)
-        printf("[%2.4f %2.4f %2.4f]", target_mesh(0,i,j), target_mesh(1,i,j), target_mesh(2,i,j));
-      target_vis.V(j*target_mesh[1]+i, 0) += target_mesh(0,i,j);
-      target_vis.V(j*target_mesh[1]+i, 1) += target_mesh(1,i,j);
-      target_vis.V(j*target_mesh[1]+i, 2) += target_mesh(2,i,j);
-    }
-  }
+#ifdef MM_MESH_WITH_VIEWER
   delete mesh;
-  target_vis.writeOBJ("target.obj");
-  if (vis)
-    target_vis.show(true);
+#endif
   
-  for(auto line_pos : Idx_It_Dims(lines, 1, -1)) {
-    if (lines({0, line_pos.r(1,-1)}) == 0 &&
-        lines({1, line_pos.r(1,-1)}) == 0 &&
-        lines({2, line_pos.r(1,-1)}) == (line_pos[1]-cl_x)*0.01 &&
-        lines({3, line_pos.r(1,-1)}) == (line_pos[2]-cl_y)*0.01) {
-          lines({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-          lines({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-          lines({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
-          lines({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+  for(auto line_pos : Idx_It_Dims(c._rays, 1, -1)) {
+    if (c._rays({0, line_pos.r(1,-1)}) == 0 &&
+        c._rays({1, line_pos.r(1,-1)}) == 0 &&
+        //FIXME TODO detection!
+        c._rays({2, line_pos.r(1,-1)}) == (line_pos[1]-cl_x)*0.01 &&
+        c._rays({3, line_pos.r(1,-1)}) == (line_pos[2]-cl_y)*0.01) {
+          c._rays({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          c._rays({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          c._rays({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          c._rays({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
         }
   }
+  
+  /*for(auto line_pos : Idx_It_Dims(c._rays, 1, -1)) {
+    if (c._rays({0, line_pos.r(1,-1)}) == 0 &&
+        c._rays({1, line_pos.r(1,-1)}) == 0 &&
+        c._rays({2, line_pos.r(1,-1)}) == (line_pos[1]-cl_x)*0.01 &&
+        c._rays({3, line_pos.r(1,-1)}) == (line_pos[2]-cl_y)*0.01) {
+          c._rays({0, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          c._rays({1, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          c._rays({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+          c._rays({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
+        }
+  }*/
   
   Mesh line_mesh;
       
-  for(auto line_pos : Idx_It_Dims(lines,"x","y")) {
-    Eigen::Vector3d origin(lines({0,line_pos.r("x","y"),0,0}),lines({1,line_pos.r("x","y"),0,0}),0.0);
-    Eigen::Vector3d dir(lines({2,line_pos.r("x","y"),0,0}),lines({3,line_pos.r("x","y"),0,0}),-1.0);
+  for(auto line_pos : Idx_It_Dims(c._rays,"x","y")) {
+    Eigen::Vector3d origin(c._rays({0,line_pos.r("x","y"),0,0}),c._rays({1,line_pos.r("x","y"),0,0}),0.0);
+    Eigen::Vector3d dir(c._rays({2,line_pos.r("x","y"),0,0}),c._rays({3,line_pos.r("x","y"),0,0}),-1.0);
     
     if (!std::isnan(origin(0))) {
       dir *= 5.0;
@@ -2713,38 +2718,10 @@ printf("\nsolving central camera with deformation ------------------------------
   return 0.0;
 }
 
+}
+
 namespace ucalib {
   
-  
-  class RayCalib : public Calib {
-  public:
-    RayCalib(Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &rays, cv::Point2i img_size);
-    RayCalib() {};
-    RayCalib(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string);
-    //empty idx specifies first cam or view respectively
-    virtual Cam *cam(const Idx &cam) const;
-    //empty idx size is extrinsics+views size!
-    virtual Cam *cam(const Idx &cam, const Idx &view) const;
-    virtual const Mat_<double> &extrinsics_cams() const;
-    virtual const Mat_<double> &extrinsics_views() const;
-    virtual const Mat_<double> &proj();
-    virtual const Mat_<double> &rays();
-    //virtual cv::Size img_size() const;
-    virtual int features() const { return Depth_Required | Rectification; };
-    virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string);
-    
-    virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
-    
-    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts);
-    friend class RayCam;
-  private:
-    //cv::Point2i _img_size;
-    Mat_<double> _rays; //same size as cam_extrinsics
-    Mat_<double> _cams; //same size as cam_extrinsics
-    Mat_<double> _views; //same size as cam_extrinsics
-    Mat_<double> _proj; //same size as cam_extrinsics
-  };
- 
   //TODO hide?
   class RayCam : public Cam {
   public:
@@ -2878,9 +2855,14 @@ namespace ucalib {
     
     int v_start = views_dims_start.get(proxy);
     
-    printf("view start dim: %d\n", v_start);
+    fit_cams_lines_multi(proxy, v_start, img_size, *c, true, j, opts);
     
-    fit_cams_lines_multi(proxy, v_start, img_size, c->_rays, c->_cams, c->_views, c->_proj, true, j);
+#ifdef MM_MESH_WITH_VIEWER
+  if (opts.flags() & ucalib::SHOW_TARGET) {
+    Mesh target_vis = c->target_mesh();
+    target_vis.show(true);
+  }
+#endif
     
     return c;
   }
@@ -3045,5 +3027,25 @@ namespace ucalib {
     
     //STEP 3 warp
     remap(cvMat(src), cvMat(dst), map, cv::noArray(), cv::INTER_LINEAR);
+  }
+  
+  Mesh RayCalib::target_mesh() const
+  {
+    Mesh target_vis = mesh_subdiv_plane(_mesh[1],_mesh[2]);
+    
+    //FIXME
+    //target_vis.scale(double(target_size.x)/_mesh[1]);
+    
+    for(int j=0;j<_mesh[1];j++) {
+      for(int i=0;i<_mesh[2];i++) {
+        //if (_mesh(0,i,j) != 0.0 || _mesh(1,i,j) != 0.0 ||  _mesh(2,i,j) != target_size.x/10)
+          //printf("[%2.4f %2.4f %2.4f]", _mesh(0,i,j), _mesh(1,i,j), _mesh(2,i,j));
+        target_vis.V(j*_mesh[1]+i, 0) += _mesh(0,i,j);
+        target_vis.V(j*_mesh[1]+i, 1) += _mesh(1,i,j);
+        target_vis.V(j*_mesh[1]+i, 2) += _mesh(2,i,j);
+      }
+    }
+    
+    return target_vis;
   }
 }
