@@ -2451,6 +2451,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   options.max_num_iterations = 5000;
   
   solve_pinhole(i, options, proxy, c._rays, c._cams, c._views, c._proj, strong_proj_constr_weight, non_center_rest_weigth);
+  solve_pinhole(i, options, proxy, c._rays, c._cams, c._views, c._proj, 0, 0);
   
   
   c._mesh.create({3, 40, 40});
