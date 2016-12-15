@@ -261,6 +261,15 @@ function(vad_reset_hooks)
   endfunction()
 endfunction()
 
+function(vad_dep_satisfied NAME)
+  get_property(_VAD_DEP_${NAME}_SATISFIED GLOBAL PROPERTY VAD_DEP_${NAME}_SATISFIED)
+  if(_VAD_DEP_${NAME}_SATISFIED)
+    set(VAD_DEP_${NAME}_SATISFIED TRUE PARENT_SCOPE)
+  else()
+    set(VAD_DEP_${NAME}_SATISFIED FALSE PARENT_SCOPE)
+  endif()
+endfunction()
+
 function(vigra_add_dep NAME)
   # Reset the hooks.
   vad_reset_hooks()
@@ -278,8 +287,8 @@ function(vigra_add_dep NAME)
   endif()
 
   # Check if the dependency is already satisfied.
-  get_property(_VAD_DEP_${NAME}_SATISFIED GLOBAL PROPERTY VAD_DEP_${NAME}_SATISFIED)
-  if(_VAD_DEP_${NAME}_SATISFIED)
+  vad_dep_satisfied(${NAME})
+  if(VAD_DEP_${NAME}_SATISFIED)
     message(STATUS "Dependency '${NAME}' already satisfied, skipping.")
     return()
   endif()
