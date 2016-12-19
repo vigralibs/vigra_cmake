@@ -5,7 +5,7 @@ project(ucalib)
 #####################################################
 ## INIT
 #####################################################
-include(../flexdeplists/FlexDepLists.cmake)
+include(external/flexdeplists/FlexDepLists.cmake)
 dep_lists_init()
 
 #####################################################
