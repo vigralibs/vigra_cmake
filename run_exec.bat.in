@@ -1,0 +1,3 @@
+echo off
+set PATH=@VAD_LIBRARY_DIR_LIST@%PATH%
+cmd /c @VAD_EXECUTABLE_PATH@ %*

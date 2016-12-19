@@ -1,0 +1,15 @@
+@echo off
+
+IF NOT "%VAD_ENVIRONMENT%"=="" (
+    echo "The VAD environment %VAD_ENVIRONMENT% is active, please deactivate it before switching to another environment."
+    exit /b 1
+)
+
+set VAD_ENVIRONMENT=@CMAKE_PROJECT_NAME@_$<CONFIG>
+set VAD_OLD_PROMPT=%PROMPT%
+set VAD_OLD_PATH=%PATH%
+
+set NEWPATH=@VAD_LIBRARY_DIR_LIST@
+echo %PATH%|find /i "%NEWPATH%">nul  || set PATH=%NEWPATH%;%PATH%
+
+set PROMPT=(vigra_cmake @CMAKE_PROJECT_NAME@)%PROMPT%
