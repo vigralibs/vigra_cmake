@@ -53,7 +53,9 @@ namespace ucalib {
     //virtual cv::Size img_size() const;
     virtual int features() const { return Depth_Required | Rectification; };
     virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string);
+#ifdef UCALIB_WITH_MM_MESH
     virtual Mesh target_mesh() const;
+#endif
     
     virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
     
@@ -2502,6 +2504,8 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
         }
   }*/
   
+#ifdef UCALIB_WITH_MM_MESH
+//TODO FIXME
   Mesh line_mesh;
       
   for(auto line_pos : Idx_It_Dims(c._rays,"x","y")) {
@@ -2520,6 +2524,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
     line_mesh.show(true);
   
   line_mesh.writeOBJ("center.obj");
+#endif
   
   return 0.0;
   
@@ -3030,6 +3035,7 @@ namespace ucalib {
     remap(cvMat(src), cvMat(dst), map, cv::noArray(), cv::INTER_LINEAR);
   }
   
+#ifdef UCALIB_WITH_MM_MESH
   Mesh RayCalib::target_mesh() const
   {
     Mesh target_vis = mesh_subdiv_plane(_mesh[1],_mesh[2]);
@@ -3049,4 +3055,5 @@ namespace ucalib {
     
     return target_vis;
   }
+#endif
 }

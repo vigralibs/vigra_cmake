@@ -73,7 +73,9 @@ namespace ucalib {
     //virtual cv::Size img_size() const = 0;
     virtual int features() const { return 0; };
     virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string) = 0;
+#ifdef UCALIB_WITH_MM_MESH
     virtual Mesh target_mesh() const = 0;
+#endif
     
     virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const = 0;
     
