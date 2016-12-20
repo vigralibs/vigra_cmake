@@ -8,10 +8,15 @@ project(ucalib)
 include(external/flexdeplists/FlexDepLists.cmake)
 dep_lists_init()
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/external/vigra_cmake")
+#set(VAD_VERBOSE TRUE)
+include(VigraAddDep)
+
+
 #####################################################
 ## ENVIRONMENT
 #####################################################
-option(${PNU}_BUILD_LIBIGL "build with (internal) libigl" ON)
+option(${_PNU}_BUILD_LIBIGL "build with (internal) libigl" ON)
 
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -35,39 +40,56 @@ endif()
 ## DEPENDENCIES
 #####################################################
 #metamat
-dep_lists_append(MetaMat)
-dep_lists_append(OpenCV OpenCV_INCLUDE_DIRS "" OpenCV_LIBS)
+
+message("project short: ${PROJECT_NAME} ${_PNU}")
+
+#dep_lists_append(MetaMat)
+message("project short: ${PROJECT_NAME} ${_PNU}")
+vigra_add_dep(MetaMat REQUIRED)
+list(APPEND ${_PNU}_PUB_DEP_TARGETS METAMAT::METAMAT) #TODO automate this somehow?
+
+message("inc: ${METAMAT_INCLUDE_DIRS}")
+get_target_property(DBG METAMAT::METAMAT INTERFACE_INCLUDE_DIRECTORIES)
+message("mm inc prop: ${DBG}")
+
+#dep_lists_append(OpenCV OpenCV_INCLUDE_DIRS "" OpenCV_LIBS)
 
 if (WIN32)
   # only required to import the respective targets... (we should export them ourselves?!?)
   set(SuiteSparse_USE_LAPACK_BLAS ON)
   set(BLAS_STATIC ON)
   # FIXME this should work (but will try to create BLAS target multiple times...)
-  list(APPEND ${PNU}_EXPORT_VARS SuiteSparse_USE_LAPACK_BLAS)
-  list(APPEND ${PNU}_EXPORT_VARS BLAS_STATIC)
+  list(APPEND ${_PNU}_EXPORT_VARS SuiteSparse_USE_LAPACK_BLAS)
+  list(APPEND ${_PNU}_EXPORT_VARS BLAS_STATIC)
   dep_lists_append(SuiteSparse)
 endif()
 
-dep_lists_append(Ceres)
-
-dep_lists_append(mm-mesh OPTIONAL)
+vigra_add_dep(Ceres REQUIRED)
+list(APPEND ${_PNU}_PUB_DEP_TARGETS CERES::CERES) #TODO automate this somehow?
+#dep_lists_append(mm-mesh OPTIONAL)
 
 # search pkgs
 dep_lists_pkg_search()
 
-set(${PNU}_HEADERS proxy.hpp ucalib.hpp loess.hpp)
+set(${_PNU}_HEADERS proxy.hpp ucalib.hpp loess.hpp)
 dep_lists_prepare_env()
 
 #####################################################
 ## COMPILE
 #####################################################
 add_library(ucalib proxy.cpp ucalib.cpp)
-target_link_libraries(ucalib PUBLIC ${${PNU}_LIB})
-target_link_libraries(ucalib PRIVATE ${${PNU}_PRIVATE_LIB})
-list(APPEND ${PNU}_EXPORT_LIBS ucalib)
+target_link_libraries(ucalib PUBLIC ${${_PNU}_LIB} ${_PNU}_PUB_DEP_TARGETS)
+target_link_libraries(ucalib PRIVATE ${${_PNU}_PRIVATE_LIB})
+list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
 
 #####################################################
 ## INSTALL
 #####################################################
+# FIXME add dependend packages (/targets?!) from VAD...stuff
+# FIXME add enable features (includes enabled dependencies in VAD...)
+# FIXME export/install the used VAD files and 
 dep_lists_export_local()
+
+
+message("DIRS: ${METAMAT_INCLUDE_DIRS}")
 
