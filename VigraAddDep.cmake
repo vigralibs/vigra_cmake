@@ -184,36 +184,36 @@ endfunction()
 # In addition to calling the builtin find_package(), this function
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
-function(find_package_plus NAME)
-  message(STATUS "Invoking the patched 'find_package()' function for dependency ${NAME}.")
+function(find_package_plus _VAD_NAME)
+  message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.")
   # As a first step we want to erase from the cache all the variables that were exported by a previous call
-  # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${NAME}, which we will
+  # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${_VAD_NAME}, which we will
   # also remove.
-  foreach(_NEWVAR ${VAD_NEW_VARS_${NAME}})
+  foreach(_NEWVAR ${VAD_NEW_VARS_${_VAD_NAME}})
     unset(${_NEWVAR} CACHE)
   endforeach()
-  unset(VAD_NEW_VARS_${NAME} CACHE)
+  unset(VAD_NEW_VARS_${_VAD_NAME} CACHE)
 
   # Get the list of the currently defined variables.
-  get_cmake_property(_OLD_VARIABLES_${NAME} VARIABLES)
+  get_cmake_property(_OLD_VARIABLES_${_VAD_NAME} VARIABLES)
   # Call the original find_package().
-  _find_package(${NAME} ${ARGN})
+  _find_package(${_VAD_NAME} ${ARGN})
   # Detect new variables defined by find_package() and make them cached.
-  get_cmake_property(_NEW_VARIABLES_${NAME} VARIABLES)
+  get_cmake_property(_NEW_VARIABLES_${_VAD_NAME} VARIABLES)
   # Remove duplicates in the new vars list.
-  list(REMOVE_DUPLICATES _NEW_VARIABLES_${NAME})
-  # Create a lower case version of the package name. We will use this in string matching below.
-  string(TOLOWER "${NAME}" _NAME_LOW)
+  list(REMOVE_DUPLICATES _NEW_VARIABLES_${_VAD_NAME})
+  # Create a lower case version of the package _VAD_NAME. We will use this in string matching below.
+  string(TOLOWER "${_VAD_NAME}" _NAME_LOW)
   # Detect the new variables by looping over the new vars list and comparing its elements to the old vars.
   # We will append the detected variables to the _DIFFVARS list.
   set(_DIFFVARS)
-  foreach(_NEWVAR ${_NEW_VARIABLES_${NAME}})
-      list(FIND _OLD_VARIABLES_${NAME} "${_NEWVAR}" _NEWVARIDX)
+  foreach(_NEWVAR ${_NEW_VARIABLES_${_VAD_NAME}})
+      list(FIND _OLD_VARIABLES_${_VAD_NAME} "${_NEWVAR}" _NEWVARIDX)
       if(_NEWVARIDX EQUAL -1)
           # New var was not found among the old ones. We check if it is not an internal variable,
           # in which case we will add it to the cached variables.
           string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
-          if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package")
+          if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package" AND NOT _NEWVAR_LOW MATCHES "^argv")
             # Make sure we don't store multiline strings in the cache, as that is not supported.
             string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
             if(VAD_VERBOSE)
@@ -232,7 +232,7 @@ function(find_package_plus NAME)
       endif()
   endforeach()
   # Store a list of the variables that were exported as cache variables.
-  set(VAD_NEW_VARS_${NAME} ${_DIFFVARS} CACHE INTERNAL "")
+  set(VAD_NEW_VARS_${_VAD_NAME} ${_DIFFVARS} CACHE INTERNAL "")
 
   # Now take care of turning any IMPORTED non-GLOBAL target defined by a find_package() call into a GLOBAL one.
   make_imported_targets_global()
@@ -275,7 +275,7 @@ function(vigra_add_dep NAME)
   vad_reset_hooks()
 
   # Parse the options.
-  set(options SYSTEM LIVE)
+  set(options SYSTEM LIVE GLOBAL_PUBLIC)
   set(oneValueArgs GIT_REPO GIT_BRANCH GIT_COMMIT)
   set(multiValueArgs GIT_CLONE_OPTS)
   cmake_parse_arguments(ARG_VAD_${NAME} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -290,6 +290,8 @@ function(vigra_add_dep NAME)
   vad_dep_satisfied(${NAME})
   if(VAD_DEP_${NAME}_SATISFIED)
     message(STATUS "Dependency '${NAME}' already satisfied, skipping.")
+    # FIXME store found VAD file in if GLOBAL_PUBLIC was specified
+    # FIXME store dep name if GLOBAL_PUBLIC was specified
     return()
   endif()
 
@@ -312,8 +314,22 @@ function(vigra_add_dep NAME)
   # First thing, we try to read the dep properties from the VAD file, if provided.
   find_file(VAD_${NAME}_FILE VAD_${NAME}.cmake ${CMAKE_MODULE_PATH})
   if(VAD_${NAME}_FILE)
-    message(STATUS "VAD file 'VAD_${NAME}.cmake' was found at '${VAD_${NAME}_FILE}'. The VAD file will now be parsed.")
+    message(STATUS "VAD file 'VAD_${NAME}.cmake' was found at '${VAD_${NAME}_FILE}'. The VAD file will now be parsed.")   
     include(${VAD_${NAME}_FILE})
+    if(ARG_VAD_${NAME}_GLOBAL_PUBLIC)
+      #project_global dependency list
+      string(TOUPPER ${PROJECT_NAME} VAD_PNU)
+      set(VAD_DEP_${VAD_PNU}_PACKAGES ${VAD_DEP_${VAD_PNU}_PACKAGES} "${NAME}" PARENT_SCOPE)
+      set(VAD_DEP_${VAD_PNU}_VAD_FILES ${VAD_DEP_${VAD_PNU}_VAD_FILES} "${VAD_${NAME}_FILE}" PARENT_SCOPE)
+      
+      # FIXME should be stored by VAD_script?
+      string(TOUPPER ${NAME} VAD_DEP_NAME)
+      set(VAD_DEP_${VAD_PNU}_TARGETS ${VAD_DEP_${VAD_PNU}_TARGETS} "${VAD_DEP_NAME}::${VAD_DEP_NAME}" PARENT_SCOPE)
+      
+      message("added target to VAD_DEP_${VAD_PNU}_TARGETS: ${VAD_DEP_${VAD_PNU}_TARGETS}")
+      
+      # FIXME add enabled feature list?
+    endif()
     if(GIT_REPO)
       if(ARG_VAD_${NAME}_LIVE)
         message(STATUS "VAD file for dependency ${NAME} specifies git repo: ${GIT_REPO}")
