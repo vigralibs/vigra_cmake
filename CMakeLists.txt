@@ -41,8 +41,9 @@ endif()
 #####################################################
 #metamat
 
-#dep_lists_append(MetaMat)
-vigra_add_dep(MetaMat REQUIRED GLOBAL_PUBLIC)
+#temporary only
+vigra_add_dep(cliini REQUIRED LIVE GLOBAL_PUBLIC)
+vigra_add_dep(MetaMat REQUIRED LIVE GLOBAL_PUBLIC)
 
 if (WIN32)
   # only required to import the respective targets... (we should export them ourselves?!?)
@@ -77,5 +78,5 @@ list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
 # FIXME add dependend packages (/targets?!) from VAD...stuff
 # FIXME add enable features (includes enabled dependencies in VAD...)
 # FIXME export/install the used VAD files and 
-dep_lists_export_local()
+#dep_lists_export_local()
 
