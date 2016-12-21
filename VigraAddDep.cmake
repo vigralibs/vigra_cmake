@@ -37,7 +37,7 @@ else()
 endif()
 
 function(git_clone NAME)
-  find_package(Git REQUIRED)
+  find_package(Git REQUIRED VAD_IGNORE_DEP)
 
   # Check if a git repo has been determined for the dependency.
   if(NOT VAD_${NAME}_GIT_REPO)
@@ -275,10 +275,19 @@ function(vigra_add_dep NAME)
   vad_reset_hooks()
 
   # Parse the options.
-  set(options SYSTEM LIVE)
+  set(options SYSTEM LIVE VAD_IGNORE_DEP)
   set(oneValueArgs GIT_REPO GIT_BRANCH GIT_COMMIT)
   set(multiValueArgs GIT_CLONE_OPTS)
   cmake_parse_arguments(ARG_VAD_${NAME} "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  if(NOT ARG_VAD_${NAME}_VAD_IGNORE_DEP)
+    message(STATUS "Declaring '${NAME}' as a dependency for '${PROJECT_NAME}'")
+    get_property(_VAD_${PROJECT_NAME}_DEP_LIST GLOBAL PROPERTY VAD_${PROJECT_NAME}_DEP_LIST)
+    list(APPEND _VAD_${PROJECT_NAME}_DEP_LIST "${NAME}")
+    list(REMOVE_DUPLICATES _VAD_${PROJECT_NAME}_DEP_LIST)
+    message(STATUS "Full dep list for '${PROJECT_NAME}': ${_VAD_${PROJECT_NAME}_DEP_LIST}")
+    set_property(GLOBAL PROPERTY VAD_${PROJECT_NAME}_DEP_LIST "${_VAD_${PROJECT_NAME}_DEP_LIST}")
+  endif()
 
   # Validate options.
   # SYSTEM and LIVE cannot be present at the same time.
