@@ -41,18 +41,8 @@ endif()
 #####################################################
 #metamat
 
-message("project short: ${PROJECT_NAME} ${_PNU}")
-
 #dep_lists_append(MetaMat)
-message("project short: ${PROJECT_NAME} ${_PNU}")
-vigra_add_dep(MetaMat REQUIRED)
-list(APPEND ${_PNU}_PUB_DEP_TARGETS METAMAT::METAMAT) #TODO automate this somehow?
-
-message("inc: ${METAMAT_INCLUDE_DIRS}")
-get_target_property(DBG METAMAT::METAMAT INTERFACE_INCLUDE_DIRECTORIES)
-message("mm inc prop: ${DBG}")
-
-#dep_lists_append(OpenCV OpenCV_INCLUDE_DIRS "" OpenCV_LIBS)
+vigra_add_dep(MetaMat REQUIRED GLOBAL_PUBLIC)
 
 if (WIN32)
   # only required to import the respective targets... (we should export them ourselves?!?)
@@ -64,8 +54,7 @@ if (WIN32)
   dep_lists_append(SuiteSparse)
 endif()
 
-vigra_add_dep(Ceres REQUIRED)
-list(APPEND ${_PNU}_PUB_DEP_TARGETS CERES::CERES) #TODO automate this somehow?
+vigra_add_dep(Ceres REQUIRED LIVE GLOBAL_PUBLIC)
 #dep_lists_append(mm-mesh OPTIONAL)
 
 # search pkgs
@@ -78,7 +67,7 @@ dep_lists_prepare_env()
 ## COMPILE
 #####################################################
 add_library(ucalib proxy.cpp ucalib.cpp)
-target_link_libraries(ucalib PUBLIC ${${_PNU}_LIB} ${_PNU}_PUB_DEP_TARGETS)
+target_link_libraries(ucalib PUBLIC ${${_PNU}_LIB} ${VAD_DEP_UCALIB_TARGETS})
 target_link_libraries(ucalib PRIVATE ${${_PNU}_PRIVATE_LIB})
 list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
 
@@ -89,7 +78,4 @@ list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
 # FIXME add enable features (includes enabled dependencies in VAD...)
 # FIXME export/install the used VAD files and 
 dep_lists_export_local()
-
-
-message("DIRS: ${METAMAT_INCLUDE_DIRS}")
 

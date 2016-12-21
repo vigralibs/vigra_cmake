@@ -294,8 +294,6 @@ macro(dep_lists_prepare_env)
   else()
     string(TOUPPER ${PROJECT_NAME} _FDP_PNU)
   endif()
-  
-  message("WTF: ARGV0 ${ARGV0} ${PROJECT_NAME} ${_FDP_PNU}")
 
   #####################################################
   ## SET INCLUDES, LIBS, ... (public)
