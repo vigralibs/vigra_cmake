@@ -21,13 +21,20 @@ endfunction()
 function(vad_live)
   message("run VAD_LIVE for METAMAT")
   
+  vigra_add_dep(HDF5 REQUIRED LIVE)
+  vigra_add_dep(OpenCV REQUIRED LIVE)
+  vigra_add_dep(Boost REQUIRED LIVE)
+  
   git_clone(MetaMat)
   
   add_subdirectory("${VAD_EXTERNAL_ROOT}/MetaMat" "${CMAKE_BINARY_DIR}/external/MetaMat")
   
   add_library(METAMAT::METAMAT INTERFACE IMPORTED)  
   
-  set_target_properties(METAMAT::METAMAT PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/MetaMat/include")
-  set_target_properties(METAMAT::METAMAT PROPERTIES INTERFACE_LINK_LIBRARIES cliini)
 
+  # FIXME shouldnt this be forwarded?
+  get_target_property(_MM_INC_DIRS metamat INTERFACE_INCLUDE_DIRECTORIES)
+  
+  set_target_properties(METAMAT::METAMAT PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/MetaMat/include;${_MM_INC_DIRS}")
+  set_target_properties(METAMAT::METAMAT PROPERTIES INTERFACE_LINK_LIBRARIES metamat)  
 endfunction()
