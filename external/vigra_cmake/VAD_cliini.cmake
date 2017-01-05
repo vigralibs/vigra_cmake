@@ -23,6 +23,10 @@ function(vad_live)
   
   git_clone(cliini)
   
+  if(WIN32)
+    vigra_add_dep(fnmatch REQUIRED LIVE)
+  endif()
+  
   # TODO default seems to point to checkout out dir in source?!?
   add_subdirectory("${VAD_EXTERNAL_ROOT}/cliini" "${CMAKE_BINARY_DIR}/external/cliini")
   
