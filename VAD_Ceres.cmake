@@ -24,7 +24,7 @@ function(vad_live)
   list(APPEND CMAKE_MODULE_PATH "${VAD_EXTERNAL_ROOT}/Ceres/cmake")
   
   #prerequisits
-  find_package(Eigen REQUIRED)
+  vigra_add_dep(Eigen REQUIRED LIVE)
   
   git_clone(Ceres)
   
@@ -32,20 +32,29 @@ function(vad_live)
   file(READ "${VAD_EXTERNAL_ROOT}/Ceres/CMakeLists.txt" FILECONTENT)
   string(REPLACE "CMAKE_SOURCE_DIR" "CMAKE_CURRENT_LIST_DIR" FILECONTENT ${FILECONTENT})
   string(REPLACE "CMAKE_BINARY_DIR" "CMAKE_CURRENT_BINARY_DIR" FILECONTENT ${FILECONTENT})
+  string(REPLACE "add_custom_target(uninstall\n" "add_custom_target(uninstall-ceres\n" FILECONTENT ${FILECONTENT})
   file(WRITE "${VAD_EXTERNAL_ROOT}/Ceres/CMakeLists.txt" ${FILECONTENT})
   
-  message("output: ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
+  #patch (HACK) logging.h
+  file(READ "${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog/glog/logging.h" FILECONTENT)
+  string(REPLACE "// Log severity level constants."
+        "#undef ERROR\n#define MAX_LOG_LEVEL -1" FILECONTENT "${FILECONTENT}")
+  file(WRITE "${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog/glog/logging.h" "${FILECONTENT}")  
+  
+  set(EIGENSPARSE ON) #use Eigen (no additional deps required - but suitesparse should be faster!)
+  set(MINIGLOG ON) #use miniglog
+  set(EIGENSPARSE ON)
+  set(BUILD_TESTING OFF)
   
   # TODO default seems to point to checkout out dir in source?!?
   add_subdirectory("${VAD_EXTERNAL_ROOT}/Ceres" "${CMAKE_BINARY_DIR}/external/Ceres")
   
-  if(NOT TARGET ceres)
-    message(ERROR "ceres found but no target \"ceres\"!")
-  endif()
-  
   add_library(CERES::CERES INTERFACE IMPORTED)  
   
-  set_target_properties(CERES::CERES PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${EIGEN_INCLUDE_DIRS}")
+  
+  get_target_property(_CERES_INC ceres INTERFACE_INCLUDE_DIRECTORIES)
+  
+  set_target_properties(CERES::CERES PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}")
   set_target_properties(CERES::CERES PROPERTIES INTERFACE_LINK_LIBRARIES ceres)
 
 endfunction()
