@@ -44,17 +44,6 @@ endif()
 #temporary only
 vigra_add_dep(cliini REQUIRED LIVE GLOBAL_PUBLIC)
 vigra_add_dep(MetaMat REQUIRED LIVE GLOBAL_PUBLIC)
-
-if (WIN32)
-  # only required to import the respective targets... (we should export them ourselves?!?)
-  set(SuiteSparse_USE_LAPACK_BLAS ON)
-  set(BLAS_STATIC ON)
-  # FIXME this should work (but will try to create BLAS target multiple times...)
-  list(APPEND ${_PNU}_EXPORT_VARS SuiteSparse_USE_LAPACK_BLAS)
-  list(APPEND ${_PNU}_EXPORT_VARS BLAS_STATIC)
-  dep_lists_append(SuiteSparse)
-endif()
-
 vigra_add_dep(Ceres REQUIRED LIVE GLOBAL_PUBLIC)
 #dep_lists_append(mm-mesh OPTIONAL)
 
