@@ -33,4 +33,6 @@ function(vad_live)
   
   # TODO handle with components...
   vigra_add_dep(boost_filesystem REQUIRED LIVE)
+  
+  set(BOOST_FOUND TRUE CACHE INTERNAL "")
 endfunction()
