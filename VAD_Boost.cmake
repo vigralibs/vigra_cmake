@@ -30,6 +30,7 @@ function(vad_live)
   vigra_add_dep(boost_io REQUIRED LIVE)
   vigra_add_dep(boost_functional REQUIRED LIVE)
   vigra_add_dep(boost_range REQUIRED LIVE)
+  #vigra_add_dep(boost_utility REQUIRED LIVE)
   
   # TODO handle with components...
   vigra_add_dep(boost_filesystem REQUIRED LIVE)
