@@ -41,10 +41,10 @@ function(vad_live)
         "#undef ERROR\n#define MAX_LOG_LEVEL -1" FILECONTENT "${FILECONTENT}")
   file(WRITE "${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog/glog/logging.h" "${FILECONTENT}")  
   
-  set(EIGENSPARSE ON) #use Eigen (no additional deps required - but suitesparse should be faster!)
-  set(MINIGLOG ON) #use miniglog
-  set(EIGENSPARSE ON)
-  set(BUILD_TESTING OFF)
+  set(EIGENSPARSE ON CACHE BOOL "" FORCE) #use Eigen (no additional deps required - but suitesparse should be faster!)
+  set(MINIGLOG ON CACHE BOOL "" FORCE) #use miniglog
+  set(EIGENSPARSE ON CACHE BOOL "" FORCE)
+  set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
   
   # TODO default seems to point to checkout out dir in source?!?
   add_subdirectory("${VAD_EXTERNAL_ROOT}/Ceres" "${CMAKE_BINARY_DIR}/external/Ceres")
