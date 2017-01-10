@@ -44,13 +44,13 @@ macro(vad_live)
     endif()
   endforeach()
   
+  message("opencv incs: ${_OPENCV_INC}")
+  
   set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_LINK_LIBRARIES "${_OPENCV_TGTS}")
-  set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/OpenCV/include;${CMAKE_BINARY_DIR}")
+  set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/OpenCV/include;${CMAKE_BINARY_DIR};${_OPENCV_INC}")
   
   set(OpenCV_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/OpenCV/include;${_OPENCV_INC};${CMAKE_BINARY_DIR}" PARENT_SCOPE)
   set(OpenCV_LIBS "${_OPENCV_TGTS}" PARENT_SCOPE)
-  
-  message("vad-sys inc dir opencv: ${OpenCV_INCLUDE_DIRS}")
   
   set(OPENCV_FOUND TRUE PARENT_SCOPE)
 

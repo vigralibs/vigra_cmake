@@ -43,17 +43,10 @@ endif()
 #####################################################
 ## DEPENDENCIES
 #####################################################
-#metamat
 
-#temporary only
-#vigra_add_dep(cliini REQUIRED LIVE GLOBAL_PUBLIC)
-#vigra_add_dep(MetaMat REQUIRED LIVE GLOBAL_PUBLIC)
-#vigra_add_dep(Ceres REQUIRED LIVE GLOBAL_PUBLIC)
 #dep_lists_append(mm-mesh OPTIONAL)
 
-# search pkgs
-dep_lists_pkg_search()
-
+# this only exports the headers ... remove/only for install!
 set(${_PNU}_HEADERS proxy.hpp ucalib.hpp loess.hpp)
 dep_lists_prepare_env()
 
@@ -61,20 +54,9 @@ dep_lists_prepare_env()
 ## COMPILE
 #####################################################
 add_library(ucalib proxy.cpp ucalib.cpp)
+vad_link(ucalib cliini METAMAT::METAMAT CERES::CERES)
 
-vad_link(ucalib cliini)
-
-#target_link_libraries(ucalib PUBLIC ${${_PNU}_LIB} ${VAD_DEP_UCALIB_TARGETS})
-#target_link_libraries(ucalib PRIVATE ${${_PNU}_PRIVATE_LIB})
-list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
-
-#####################################################
-## INSTALL
-#####################################################
-# FIXME add dependend packages (/targets?!) from VAD...stuff
-# FIXME add enable features (includes enabled dependencies in VAD...)
-# FIXME export/install the used VAD files and 
-#dep_lists_export_local()
+#dependency handling
 
 vad_auto_deps_show()
 

@@ -17,6 +17,10 @@ function(vad_system)
   
 endfunction()
 
+function(vad_deps)
+  vad_autodep_pkg(Eigen "Ceres")
+endfunction()
+
 function(vad_live)
   message("run VAD_LIVE for CERES")
   
@@ -24,7 +28,7 @@ function(vad_live)
   list(APPEND CMAKE_MODULE_PATH "${VAD_EXTERNAL_ROOT}/Ceres/cmake")
   
   #prerequisits
-  vigra_add_dep(Eigen REQUIRED LIVE)
+  vad_deps(${ARGN})
   
   git_clone(Ceres)
   
