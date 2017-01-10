@@ -10,6 +10,10 @@ dep_lists_init()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/external/vigra_cmake")
 #set(VAD_VERBOSE TRUE)
+# TODO integrate
+include(VAD_HendriksWrappers)
+
+# TODO integrate into VAD framework
 include(VigraAddDep)
 
 
@@ -42,9 +46,9 @@ endif()
 #metamat
 
 #temporary only
-vigra_add_dep(cliini REQUIRED LIVE GLOBAL_PUBLIC)
-vigra_add_dep(MetaMat REQUIRED LIVE GLOBAL_PUBLIC)
-vigra_add_dep(Ceres REQUIRED LIVE GLOBAL_PUBLIC)
+#vigra_add_dep(cliini REQUIRED LIVE GLOBAL_PUBLIC)
+#vigra_add_dep(MetaMat REQUIRED LIVE GLOBAL_PUBLIC)
+#vigra_add_dep(Ceres REQUIRED LIVE GLOBAL_PUBLIC)
 #dep_lists_append(mm-mesh OPTIONAL)
 
 # search pkgs
@@ -57,8 +61,11 @@ dep_lists_prepare_env()
 ## COMPILE
 #####################################################
 add_library(ucalib proxy.cpp ucalib.cpp)
-target_link_libraries(ucalib PUBLIC ${${_PNU}_LIB} ${VAD_DEP_UCALIB_TARGETS})
-target_link_libraries(ucalib PRIVATE ${${_PNU}_PRIVATE_LIB})
+
+vad_link(ucalib cliini)
+
+#target_link_libraries(ucalib PUBLIC ${${_PNU}_LIB} ${VAD_DEP_UCALIB_TARGETS})
+#target_link_libraries(ucalib PRIVATE ${${_PNU}_PRIVATE_LIB})
 list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
 
 #####################################################
@@ -68,4 +75,6 @@ list(APPEND ${_PNU}_EXPORT_LIBS ucalib)
 # FIXME add enable features (includes enabled dependencies in VAD...)
 # FIXME export/install the used VAD files and 
 #dep_lists_export_local()
+
+vad_auto_deps_show()
 
