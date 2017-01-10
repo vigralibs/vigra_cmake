@@ -259,6 +259,8 @@ function(vad_reset_hooks)
     git_clone(${NAME})
     add_subdirectory("${VAD_EXTERNAL_ROOT}/${NAME}" "${VAD_EXTERNAL_ROOT}/${NAME}/build_external_dep")
   endfunction()
+  function(vad_deps NAME)
+  endfunction()
 endfunction()
 
 function(vad_dep_satisfied NAME)
