@@ -18,6 +18,10 @@ function(vad_live)
   #set(HDF5_LIBRARIES "${VAD_EXTERNAL_ROOT}/HDF5/c++/src")
   #set(HDF5_LIBRARY_DIRS "${VAD_EXTERNAL_ROOT}/HDF5/c++/src")
   
+  add_library(HDF5::HDF5 INTERFACE IMPORTED)
+  set_target_properties(HDF5::HDF5 PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_INCLUDE_DIR}")
+  set_target_properties(HDF5::HDF5 PROPERTIES INTERFACE_LINK_LIBRARIES hdf5-static)
+  
   # TODO should not be required...
   set(HDF5_FOUND TRUE CACHE INTERNAL "")
 endfunction()

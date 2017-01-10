@@ -1,5 +1,10 @@
 set(GIT_REPO "https://github.com/boostorg/boost.git")
 
+function(vad_deps)
+message("boost deps !")
+endfunction()
+
+
 function(vad_live)
   message("run VAD_LIVE for Boost")
   
