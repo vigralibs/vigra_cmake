@@ -28,7 +28,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -fno-omit-frame-pointer -fPIC -std=c++11 -march=native -fopenmp")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   #openmp for ceres solver
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /noOy /W2 /EHsc /openmp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /noOy /W2 /EHsc /openmp /MP")
 endif()
 
 # default to static on win shared on others
@@ -54,7 +54,11 @@ dep_lists_prepare_env()
 ## COMPILE
 #####################################################
 add_library(ucalib proxy.cpp ucalib.cpp)
-vad_link(ucalib cliini METAMAT::METAMAT CERES::CERES)
+vad_link(ucalib CERES::CERES cliini METAMAT::METAMAT)
+
+add_executable(ucalib_sample sample.cpp)
+# FIXME cliini should be forwarded from ucalib/metamat!
+vad_link(ucalib_sample ucalib hdmarker cliini)
 
 #dependency handling
 

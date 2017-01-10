@@ -7,7 +7,7 @@ function(vad_system)
   vad_system_default(${ARGN})
 endfunction()
 
-macro(vad_live)
+function(vad_live)
   message("run VAD_LIVE for OpenCV")
   
   git_clone(OpenCV)
@@ -44,14 +44,12 @@ macro(vad_live)
     endif()
   endforeach()
   
-  message("opencv incs: ${_OPENCV_INC}")
-  
   set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_LINK_LIBRARIES "${_OPENCV_TGTS}")
   set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/OpenCV/include;${CMAKE_BINARY_DIR};${_OPENCV_INC}")
   
-  set(OpenCV_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/OpenCV/include;${_OPENCV_INC};${CMAKE_BINARY_DIR}" PARENT_SCOPE)
-  set(OpenCV_LIBS "${_OPENCV_TGTS}" PARENT_SCOPE)
-  
-  set(OPENCV_FOUND TRUE PARENT_SCOPE)
+  # FIXME 
+  set(OpenCV_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/OpenCV/include;${_OPENCV_INC};${CMAKE_BINARY_DIR}" CACHE STRING "" FORCE)
+  set(OpenCV_LIBS "${_OPENCV_TGTS}" CACHE STRING "" FORCE)
+  set(OPENCV_FOUND TRUE CACHE BOOL "" FORCE)
 
-endmacro()
+endfunction()

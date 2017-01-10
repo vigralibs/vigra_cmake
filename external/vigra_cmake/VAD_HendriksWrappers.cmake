@@ -7,7 +7,7 @@ endif()
 # Mark as included.
 set(VAD_HendriksWrappers_Included YES)
 
-set(_TARGET_PACKAGE_LIST cliini;cliini;METAMAT::METAMAT;MetaMat;CERES::CERES;Ceres;HDF5::HDF5;HDF5;OPENCV::OPENCV;OpenCV;boost_filesystem;Boost)
+set(_TARGET_PACKAGE_LIST cliini;cliini;METAMAT::METAMAT;MetaMat;CERES::CERES;Ceres;HDF5::HDF5;HDF5;OPENCV::OPENCV;OpenCV;boost_filesystem;Boost;hdmarker;hdmarker)
 
 # TODO check system dependency!
 function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
