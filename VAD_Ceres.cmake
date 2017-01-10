@@ -60,5 +60,9 @@ function(vad_live)
   
   set_target_properties(CERES::CERES PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}")
   set_target_properties(CERES::CERES PROPERTIES INTERFACE_LINK_LIBRARIES ceres)
+  
+  set(CERES_INCLUDE_DIRS "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}" CACHE STRING "" FORCE)
+  set(CERES_LIBRARIES ceres CACHE STRING "" FORCE)
+  set(CERES_FOUND TRUE CACHE BOOL "" FORCE)
 
 endfunction()

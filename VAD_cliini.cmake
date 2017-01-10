@@ -32,7 +32,11 @@ function(vad_live)
   
   add_library(CLIINI::CLIINI INTERFACE IMPORTED)  
   
-  set_target_properties(CLIINI::CLIINI PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CLIINI_INCLUDE_DIRS}")
+  # for the included target
+  set_target_properties(cliini PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/cliini/include")
+  
+  #for the new target...
+  set_target_properties(CLIINI::CLIINI PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/cliini/include")
   set_target_properties(CLIINI::CLIINI PROPERTIES INTERFACE_LINK_LIBRARIES cliini)
 
 endfunction()
