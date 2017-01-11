@@ -8,6 +8,13 @@ endfunction()
 function(vad_live)
   message("run VAD_LIVE for Boost")
   
+  # WARNING very important! disables auto-linking for boost!
+  set(_CFG_PATH "${VAD_EXTERNAL_ROOT}/boost_config/include/boost/config/user.hpp")
+  file(READ ${_CFG_PATH} FILECONTENT)
+  string(REPLACE "// #define BOOST_ALL_NO_LIB" "#define BOOST_ALL_NO_LIB" FILECONTENT ${FILECONTENT})
+  file(WRITE ${_CFG_PATH} ${FILECONTENT})
+  
+  
   # required for (all?) others
   vigra_add_dep(boost_config REQUIRED LIVE)
   
