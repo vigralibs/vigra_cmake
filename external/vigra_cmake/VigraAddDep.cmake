@@ -38,11 +38,22 @@ endif()
 
 # FIXME public only for now...
 function(forward_target_includes TGT)
+  get_target_property(_TGT_TYPE ${TGT} TYPE)
   set(_EXTRA_INCS)
+
   get_target_property(_EXTRA_INC ${TGT} INTERFACE_INCLUDE_DIRECTORIES)
   if (_EXTRA_INC)
     list(APPEND _EXTRA_INCS ${_EXTRA_INC})
   endif()
+  
+  if (NOT _TGT_TYPE STREQUAL "INTERFACE_LIBRARY")
+    get_target_property(_EXTRA_INC ${TGT} INCLUDE_DIRECTORIES)
+    if (_EXTRA_INC)
+      list(APPEND _EXTRA_INCS ${_EXTRA_INC})
+    endif()
+  endif()
+  
+  
   foreach(_DEP ${ARGN}) 
     get_target_property(_EXTRA_INC ${_DEP} INTERFACE_INCLUDE_DIRECTORIES)
     if (_EXTRA_INC)
@@ -67,7 +78,6 @@ function(forward_target_includes TGT)
     set_target_properties(${TGT} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${_EXTRA_INCS}")
     
     # FIXME extra options for INTERFACE PUBLIC, PRIVATE...
-    get_target_property(_TGT_TYPE ${TGT} TYPE)
     #interface library does not allow property INCLUDE_DIRECTORIES
     if (NOT _TGT_TYPE STREQUAL "INTERFACE_LIBRARY")
       set_target_properties(${TGT} PROPERTIES INCLUDE_DIRECTORIES "${_EXTRA_INCS}")
