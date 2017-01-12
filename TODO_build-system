@@ -19,3 +19,5 @@ IDEA:
 
 CMAKE/libs:
 - gen header dirs on config run (not as target!)
+- fix vad_make_imported_target_global to not use alias? (fixes add_dependencies problems, see VAD_Ceres)
+- don't use CMAKE_MODULE_PATH for VAD_*** (is sometimes overwritten, for example _within_ CeresConfig!)

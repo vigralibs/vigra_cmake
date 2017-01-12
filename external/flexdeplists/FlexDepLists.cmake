@@ -409,8 +409,8 @@ macro(dep_lists_prepare_env)
     string(TOLOWER ${_FDP_PNU} _FDP_HEADER_PREFIX)
   endif()
   
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/${_FDP_HEADER_PREFIX}/ COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/include/${_FDP_HEADER_PREFIX})
-  set(_FPD_HEADER_DEPLIST ${CMAKE_CURRENT_BINARY_DIR}/include/${_FDP_HEADER_PREFIX})
+  #generate at configure time
+  file(MAKE_DIRECTORY ${directory}/${CMAKE_CURRENT_BINARY_DIR}/include/${_FDP_HEADER_PREFIX})
                  
   foreach(_H ${${_FDP_PNU}_HEADERS})
     if (IS_ABSOLUTE ${_H})

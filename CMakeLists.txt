@@ -8,6 +8,8 @@ project(ucalib)
 include(external/flexdeplists/FlexDepLists.cmake)
 dep_lists_init()
 
+#set(VAD_VERBOSE true)
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/external/vigra_cmake")
 #set(VAD_VERBOSE TRUE)
 # TODO integrate
@@ -54,12 +56,26 @@ dep_lists_prepare_env()
 ## COMPILE
 #####################################################
 add_library(ucalib proxy.cpp ucalib.cpp)
-vad_link(ucalib CERES::CERES cliini METAMAT::METAMAT)
+vad_link(ucalib cliini ceres METAMAT::METAMAT)
+# FIXME should be forwarded by ceres?!
+target_link_libraries(ucalib Eigen3::Eigen)
+# FIXME should be in metamat!
+vad_link(ucalib HDF5::HDF5)
+
+#get_property(_ceres_inc TARGET Eigen3::Eigen PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+#message("Eigen3::Eigen in ucalib: ${_ceres_inc}")
+#get_property(_ceres_inc TARGET ceres PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+#message(FATAL_ERROR "ceres in ucalib: ${_ceres_inc}")
+
 
 add_executable(ucalib_sample sample.cpp)
 # FIXME cliini should be forwarded from ucalib/metamat!
 vad_link(ucalib_sample ucalib hdmarker cliini-cpp)
 
+# FIXME should be in metamat!
+target_link_libraries(ucalib_sample hdf5_cpp)
+target_link_libraries(ucalib_sample boost_filesystem)
+target_link_libraries(ucalib_sample boost_system)
 #dependency handling
 
 vad_auto_deps_show()
