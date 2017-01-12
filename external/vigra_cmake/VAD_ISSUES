@@ -1,0 +1,1 @@
+- setting variable in vad_live - for example EIGEN_INCLUDE_DIRS for use by ceres' CMakeLists.txt (use cache?)

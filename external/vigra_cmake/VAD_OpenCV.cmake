@@ -18,9 +18,10 @@ function(vad_live)
   string(REPLACE "set_target_properties(uninstall " "set_target_properties(uninstall-opencv " FILECONTENT ${FILECONTENT})
   file(WRITE "${VAD_EXTERNAL_ROOT}/OpenCV/cmake/OpenCVExtraTargets.cmake" ${FILECONTENT})
   
-  set(BUILD_TESTS OFF)
-  set(BUILD_PERF_TESTS OFF)
-  set(BUILD_EXAMPLES OFF)
+  set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(BUILD_PERF_TESTS OFF CACHE BOOL "" FORCE)
+  set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(BUILD_WITH_STATIC_CRT OFF CACHE BOOL "" FORCE)
   
   # example of disabling something
   #set(BUILD_opencv_flann OFF CACHE BOOL "" FORCE)

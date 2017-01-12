@@ -1,0 +1,21 @@
+hdf5:
+- perl finding (gen headers only if ...?)
+- gen headers in build dir
+
+paths:
+- replace all CMAKE_BUILd_DIR instance with the respective path (differes depending on location!)
+
+various
+- alle VAD files should be an explicit dependency in cmake (for auto-rebuild!)
+
+variables:
+- its not enough to generate a target somw variables need to be set (globally in CACHE) for _other_ dependencies (e.g. eigen -> ceres)
+
+IDEA:
+- hijack (or replace with something else) add_library to provide auto-build/checkout of targets!
+
+- PROBLEMS: global variable force a lot of rebuilding...
+
+
+CMAKE/libs:
+- gen header dirs on config run (not as target!)

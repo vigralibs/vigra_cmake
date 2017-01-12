@@ -1,0 +1,5 @@
+- set CMAKE_PREFIX_PATH to qt dir: C:\Program Files (x86)\openLF_libs\qt
+- set PERL_EXECUTABLE to the respective path... e.g. C:\Program Files (x86)\Git\usr\bin\perl.exe
+
+FIXME:
+comment out/in vigraadddeo line 23-25

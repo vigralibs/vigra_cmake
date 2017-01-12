@@ -58,7 +58,7 @@ vad_link(ucalib CERES::CERES cliini METAMAT::METAMAT)
 
 add_executable(ucalib_sample sample.cpp)
 # FIXME cliini should be forwarded from ucalib/metamat!
-vad_link(ucalib_sample ucalib hdmarker cliini)
+vad_link(ucalib_sample ucalib hdmarker cliini-cpp)
 
 #dependency handling
 
