@@ -164,6 +164,8 @@ function(vad_make_imported_target_global _VAD_NAME)
   # Check if the target is imported. If it not, we just exit.
   get_target_property(IMP_PROP "${_VAD_NAME}" IMPORTED)
   if(NOT IMP_PROP)
+    get_target_property(_IMP_TYPE "${_VAD_NAME}" TYPE)
+    message("type: ${_IMP_TYPE} imp: ${IMP_PROP}")
     message(FATAL_ERROR "Target '${_VAD_NAME}' is not IMPORTED, no need to make it global.")
   endif()
 
@@ -207,6 +209,7 @@ function(vad_make_imported_target_global _VAD_NAME)
   add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
   target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${_VAD_NAME}_STUB)
   add_library("${_VAD_NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
+  message("added global target ${_VAD_NAME} using _VAD_${NAME_NO_COLONS}_STUB_INTERFACE and _VAD_${_VAD_NAME}_STUB")
 
   # We need to remove the library dir for the original target from the global list:
   # the target is now just an alias with no TARGET_FILE_DIR property. Its actual
@@ -377,6 +380,7 @@ function(vigra_add_dep _VAD_NAME)
 
   # First thing, we try to read the dep properties from the VAD file, if provided.
   find_file(VAD_${_VAD_NAME}_FILE VAD_${_VAD_NAME}.cmake ${CMAKE_MODULE_PATH})
+  message("search file ${VAD_${_VAD_NAME}_FILE} - VAD_${_VAD_NAME}.cmake in ${CMAKE_MODULE_PATH}")
   if(VAD_${_VAD_NAME}_FILE)
     message(STATUS "VAD file 'VAD_${_VAD_NAME}.cmake' was found at '${VAD_${_VAD_NAME}_FILE}'. The VAD file will now be parsed.")
     include(${VAD_${_VAD_NAME}_FILE})

@@ -3,7 +3,13 @@
 set(GIT_REPO "https://github.com/RLovelett/eigen.git")
 
 function(vad_system)
+  message("run VAD_SYSTEM for EIGEN")
   vad_system_default(${ARGN})
+  
+  if (EIGEN3_FOUND)
+    set(EIGEN_FOUND true PARENT_SCOPE)
+  endif()
+  message("finshed run VAD_SYSTEM for EIGEN")
 endfunction()
 
 # FIXME this is a hack - to get EIGEN_INCLUDE_DIRS into the scope of the calling ceres CMakeLists.txt (use CACHE instead?)

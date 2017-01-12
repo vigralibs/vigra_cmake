@@ -1,5 +1,16 @@
 set(GIT_REPO "https://github.com/live-clones/hdf5.git")
 
+function(vad_system)
+  message("run VAD_SYSTEM for HDF5")
+  
+  vad_system_default(${ARGN})
+
+  if (HDF5_FOUND)
+    add_library(HDF5::HDF5 INTERFACE IMPORTED)
+    set_target_properties(HDF5::HDF5 PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_INCLUDE_DIR}")
+  endif()
+endfunction()
+
 function(vad_live)
   message("run VAD_LIVE for HDF5")
   
