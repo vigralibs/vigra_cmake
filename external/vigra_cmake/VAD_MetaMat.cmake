@@ -62,11 +62,8 @@ function(vad_live)
   git_clone(MetaMat)
   
   add_subdirectory("${VAD_EXTERNAL_ROOT}/MetaMat" "${CMAKE_BINARY_DIR}/external/MetaMat")
-  
-  add_library(METAMAT::METAMAT INTERFACE IMPORTED)  
 
-  set_target_properties(METAMAT::METAMAT PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/MetaMat/include")
-  set_target_properties(METAMAT::METAMAT PROPERTIES INTERFACE_LINK_LIBRARIES metamat)
-  # FIXME forwarding not working automatically?
-  forward_target_includes(METAMAT::METAMAT metamat)
+  set_target_properties(metamat PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/MetaMat/include")
+  
+  set(MetaMat_FOUND true CACHE BOOL "" FORCE)
 endfunction()

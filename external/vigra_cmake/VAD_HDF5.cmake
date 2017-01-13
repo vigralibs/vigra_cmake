@@ -3,11 +3,17 @@ set(GIT_REPO "https://github.com/live-clones/hdf5.git")
 function(vad_system)
   message("run VAD_SYSTEM for HDF5")
   
-  vad_system_default(${ARGN})
-
+  # FIXME how to handle components ...
+  
+  vad_system_default(${ARGN} COMPONENTS C CXX)
+  
   if (HDF5_FOUND)
-    add_library(HDF5::HDF5 INTERFACE IMPORTED)
-    set_target_properties(HDF5::HDF5 PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_INCLUDE_DIR}")
+    add_library(hdf5_cpp INTERFACE IMPORTED)
+    set_target_properties(hdf5_cpp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_CXX_INCLUDE_DIRS}")
+    set_target_properties(hdf5_cpp PROPERTIES INTERFACE_LINK_LIBRARIES "${HDF5_CXX_LIBRARIES}")
+    make_imported_targets_global()
+  else()
+    # TODO good question should we abort or what?
   endif()
 endfunction()
 

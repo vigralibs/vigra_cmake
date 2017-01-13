@@ -15,20 +15,28 @@ function(vad_system)
     message(FATAL_ERROR "expected target \"ceres\"")
   endif()
   
-  #ceres target seems to be missing any INTERFACE_INCLUDE_DIRECTORIES
+  # not working...
+  #set_property(TARGET _VAD_ceres_STUB_INTERFACE APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
+  #set_property(TARGET _VAD_ceres_STUB APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
+  #set_property(TARGET ceres APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
+  #target_link_libraries(_VAD_ceres_STUB_INTERFACE INTERFACE "Eigen3::Eigen")
+  #target_link_libraries(_VAD_ceres_STUB_INTERFACE INTERFACE "Eigen3::Eigen")
   
+  add_library(ceres_hack INTERFACE IMPORTED GLOBAL)
+  set_target_properties(ceres_hack PROPERTIES INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
   
+  add_library(ceres_hack2 INTERFACE)
+  set_target_properties(ceres_hack2 PROPERTIES INTERFACE_LINK_LIBRARIES "ceres_hack")
   
-  # FIXME this is heck create a vad_get_actual_target property (or fix vad_make_imported_target_global to not use alias!)
-  #add_dependencies(_VAD_ceres_STUB Eigen3::Eigen)
+  #does not work
+  add_library(ceres ALIAS ceres_hack2)
   
-  #get_property(_int_inc TARGET _VAD_ceres_STUB PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
-  #message("ceres target interface includes:  ${_int_inc}")
-  get_property(_int_inc TARGET Eigen3::Eigen PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
-  message("eigen target interface includes:  ${_int_inc}")
-  set_property(TARGET _VAD_ceres_STUB_INTERFACE APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_int_inc}")
-  set_property(TARGET _VAD_ceres_STUB APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_int_inc}")
-  #message(FATAL_ERROR "ohohh")
+  #does work
+  add_library(ceres_hack3 ALIAS ceres_hack2)
+  
+  get_target_property(_alias ceres ALIASED_TARGET)
+  message("ceres alias: ${_alias}")
+  
 endfunction()
 
 function(vad_deps)

@@ -7,7 +7,8 @@ endif()
 # Mark as included.
 set(VAD_HendriksWrappers_Included YES)
 
-set(_TARGET_PACKAGE_LIST cliini;cliini;cliini-cpp;cliini;METAMAT::METAMAT;MetaMat;ceres;Ceres;HDF5::HDF5;HDF5;OPENCV::OPENCV;OpenCV;boost_filesystem;Boost;hdmarker;hdmarker;FNMATCH::FNMATCH;fnmatch)
+# FIXME list can be ambiguous (e.g. fnmatch -> metamat!)
+set(_TARGET_PACKAGE_LIST cliini;cliini;cliini-cpp;cliini;METAMAT::METAMAT;MetaMat;ceres;Ceres;HDF5::HDF5;HDF5;hdf5_cpp;HDF5;OPENCV::OPENCV;OpenCV;boost_system;Boost;boost_filesystem;Boost;hdmarker;hdmarker;fnmatch;fnmatch;FNMATCH::FNMATCH;fnmatch;metamat;MetaMat;Boost::system;Boost;Boost::filesystem;Boost;ceres_hack;Ceres;ceres_hack3;Ceres)
 
 # TODO check system dependency!
 function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
@@ -15,6 +16,9 @@ function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
     vigra_add_dep(${_PKG_NAME} LIVE)
   else()
     # check for system dependency
+    
+    message("call vigra add dep from vad_autodep_pkg: ${_VAD_NAME} ${ARGN}")
+    
     vigra_add_dep(${_PKG_NAME} SYSTEM QUIET)
     vad_dep_satisfied(${_PKG_NAME})
     
@@ -32,11 +36,19 @@ endfunction()
 
 # FIXME for testing ... only PUBLIC, no Debug/Release, etc...
 function(vad_link TARGT)
+
+  message("")
+  message("vad_link ${TARGT} ${ARGN}")
+  message("")
+
   foreach(L ${ARGN})
     if(TARGET ${L})
-      target_link_libraries(${TARGT} ${L})
-      forward_target_includes(${TARGT} ${L})
+      message("direct call to target_link_libraries(${TARGT} PUBLIC ${L})")
+      target_link_libraries(${TARGT} PUBLIC ${L})
+      #forward_target_includes(${TARGT} ${L})
     else()
+      message("search for target and include : ${L}")
+    
       list(FIND _TARGET_PACKAGE_LIST ${L} _IDX_TGT)
       if (_IDX_TGT EQUAL -1)
         message(FATAL_ERROR "target ${L} does no exist and no corresponding package was found in")
@@ -44,10 +56,17 @@ function(vad_link TARGT)
       math(EXPR _IDX_PKG "${_IDX_TGT} + 1")
       list(GET _TARGET_PACKAGE_LIST ${_IDX_PKG} _PKG_NAME)
       
+      message("autodep target ${L} resolved to ${_PKG_NAME}")
+      
       vad_autodep_pkg(${_PKG_NAME} ${CMAKE_PROJECT_NAME})
-      if (VAD_BUILD_${_PKG_NAME}_FROM_GIT)
-        target_link_libraries(${TARGT} ${L})
-        forward_target_includes(${TARGT} ${L})
+      
+      if (TARGET ${L})
+        message("link ${TARGT} PUBLIC ${L}")
+        target_link_libraries(${TARGT} PUBLIC ${L})
+        #forward_target_includes(${TARGT} ${L})
+      else()
+        # TODO check if BUILD_FROM  GIT is true if yes abort!
+        message("requirested target ${TARGT} PUBLIC ${L} not found!")
       endif()
     endif()
   endforeach()

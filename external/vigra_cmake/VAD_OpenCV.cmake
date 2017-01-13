@@ -3,7 +3,7 @@
 set(GIT_REPO "https://github.com/opencv/opencv.git")
 
 function(vad_system)
-  # TODO
+  message("run VAD_SYSTEM for OpenCV")
   vad_system_default(${ARGN})
 endfunction()
 

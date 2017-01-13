@@ -30,13 +30,8 @@ function(vad_live)
   # TODO default seems to point to checkout out dir in source?!?
   add_subdirectory("${VAD_EXTERNAL_ROOT}/cliini" "${CMAKE_BINARY_DIR}/external/cliini")
   
-  add_library(CLIINI::CLIINI INTERFACE IMPORTED)  
-  
   # for the included target
   set_target_properties(cliini PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/cliini/include")
-  
-  #for the new target...
-  set_target_properties(CLIINI::CLIINI PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/cliini/include")
-  set_target_properties(CLIINI::CLIINI PROPERTIES INTERFACE_LINK_LIBRARIES cliini)
+  set_target_properties(cliini-cpp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/cliini/include")
 
 endfunction()

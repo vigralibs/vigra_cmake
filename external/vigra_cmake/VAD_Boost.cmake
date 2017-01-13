@@ -1,9 +1,8 @@
 set(GIT_REPO "https://github.com/boostorg/boost.git")
 
-function(vad_deps)
-message("boost deps !")
+function(vad_system)
+vad_system_default(${ARGN} COMPONENTS filesystem system)
 endfunction()
-
 
 function(vad_live)
   message("run VAD_LIVE for Boost")
