@@ -223,6 +223,7 @@ endfunction()
 # Override the builtin find_package() function to just call vigra_add_dep(). The purpose of this override is to make
 # sure that any dep added via find_package() goes through the VAD machinery.
 function(find_package _VAD_NAME)
+  message("call vigra add dep from find_package: ${_VAD_NAME} ${ARGN}")
   vigra_add_dep(${_VAD_NAME} SYSTEM ${ARGN})
 endfunction()
 
@@ -250,7 +251,9 @@ function(find_package_plus _VAD_NAME)
   # Get the list of the currently defined variables.
   get_cmake_property(_OLD_VARIABLES_${_VAD_NAME} VARIABLES)
   # Call the original find_package().
+  message("call original _find_package(${_VAD_NAME} ${ARGN})")
   _find_package(${_VAD_NAME} ${ARGN})
+  message("called original _find_package(${_VAD_NAME} ${ARGN})")
   # Detect new variables defined by find_package() and make them cached.
   get_cmake_property(_NEW_VARIABLES_${_VAD_NAME} VARIABLES)
   # Remove duplicates in the new vars list.

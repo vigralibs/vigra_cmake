@@ -16,10 +16,10 @@ function(vad_live)
     # TODO default seems to point to checkout out dir in source?!?
     add_subdirectory("${VAD_EXTERNAL_ROOT}/fnmatch" "${CMAKE_BINARY_DIR}/external/fnmatch")
     
-    add_library(FNMATCH::FNMATCH INTERFACE IMPORTED)  
+    #add_library(fnmatch INTERFACE IMPORTED)  
     
-    set_target_properties(FNMATCH::FNMATCH PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/fnmatch")
-    set_target_properties(FNMATCH::FNMATCH PROPERTIES INTERFACE_LINK_LIBRARIES fnmatch)
+    set_target_properties(fnmatch PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/fnmatch")
+    set_target_properties(fnmatch PROPERTIES INTERFACE_LINK_LIBRARIES fnmatch)
   else()
     message("use system dependency for fnmatch on *NIX!")
   endif()
