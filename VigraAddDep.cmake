@@ -241,7 +241,7 @@ endfunction()
 # In addition to calling the builtin find_package(), this function
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
-function(find_package_plus _VAD_NAME)
+macro(find_package_plus_no_import _VAD_NAME)
   message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.")
   # As a first step we want to erase from the cache all the variables that were exported by a previous call
   # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${_VAD_NAME}, which we will
@@ -297,6 +297,13 @@ function(find_package_plus _VAD_NAME)
   endforeach()
   # Store a list of the variables that were exported as cache variables.
   set(VAD_NEW_VARS_${_VAD_NAME} ${_DIFFVARS} CACHE INTERNAL "")
+endmacro()
+
+# In addition to calling the builtin find_package(), this function
+# will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
+# the imported targets defined by the builtin find_package() global.
+function(find_package_plus _VAD_NAME)
+  find_package_plus_no_import(${_VAD_NAME})
 
   # Now take care of turning any IMPORTED non-GLOBAL target defined by a find_package() call into a GLOBAL one.
   make_imported_targets_global()

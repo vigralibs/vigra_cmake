@@ -34,6 +34,37 @@ function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
   endif()
 endfunction()
 
+function(vad_headers _TGT)
+  set(_vad_headers_PREFIX)
+  cmake_parse_arguments(_vad_headers "" "PREFIX" "" ${ARGN})
+
+  if (_vad_headers_PREFIX)
+    set(_HEADER_PREFIX ${_vad_headers_PREFIX})
+  else()
+    string(TOLOWER ${_TGT} _HEADER_PREFIX)
+  endif()
+  
+  #generate at configure time
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX})
+                 
+  set(_HEADER_DEPLIST)
+  foreach(_H ${_vad_headers_UNPARSED_ARGUMENTS})
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H}
+                       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${_H} ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H}
+                       DEPENDS ${_H})
+    list(APPEND _HEADER_DEPLIST ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H})
+  endforeach()
+  
+  #only for local source
+  include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX})
+  
+  # TODO make this an option?
+  set_property(TARGET ${_TGT} APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/include)
+  
+  add_custom_target(${_TGT}-header-export ALL DEPENDS ${_HEADER_DEPLIST})
+  add_dependencies(${_TGT} ${_TGT}-header-export)
+endfunction()
+
 # FIXME for testing ... only PUBLIC, no Debug/Release, etc...
 function(vad_link TARGT)
 

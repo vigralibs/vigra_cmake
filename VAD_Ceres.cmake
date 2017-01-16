@@ -9,34 +9,18 @@ function(vad_system)
   vad_autodep_pkg(Eigen3 "Ceres")
   
   # FIXME environment is not reset after this!
-  vad_system_default(${ARGN})
+  find_package_plus_no_import(${ARGN})
   
-  if (NOT TARGET ceres)
+  if (NOT ceres_FOUND OR NOT TARGET ceres)
+    # TODO add/use a vad_*** function
+    set(VAD_ceres_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
     return()
   endif()
   
-  # not working...
-  #set_property(TARGET _VAD_ceres_STUB_INTERFACE APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
-  #set_property(TARGET _VAD_ceres_STUB APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
-  #set_property(TARGET ceres APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
-  #target_link_libraries(_VAD_ceres_STUB_INTERFACE INTERFACE "Eigen3::Eigen")
-  #target_link_libraries(_VAD_ceres_STUB_INTERFACE INTERFACE "Eigen3::Eigen")
+  set_property(TARGET ceres APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
   
-  add_library(ceres_hack INTERFACE IMPORTED GLOBAL)
-  set_target_properties(ceres_hack PROPERTIES INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
-  
-  add_library(ceres_hack2 INTERFACE)
-  set_target_properties(ceres_hack2 PROPERTIES INTERFACE_LINK_LIBRARIES "ceres_hack")
-  
-  #does not work
-  add_library(ceres ALIAS ceres_hack2)
-  
-  #does work
-  add_library(ceres_hack3 ALIAS ceres_hack2)
-  
-  get_target_property(_alias ceres ALIASED_TARGET)
-  message("ceres alias: ${_alias}")
-  
+  # TODO put this into a nice interface?
+  make_imported_targets_global()
 endfunction()
 
 function(vad_deps)
@@ -74,11 +58,6 @@ function(vad_live)
   
   # TODO default seems to point to checkout out dir in source?!?
   add_subdirectory("${VAD_EXTERNAL_ROOT}/Ceres" "${CMAKE_BINARY_DIR}/external/Ceres")
-  
-  #add_library(CERES::CERES INTERFACE IMPORTED)  
-  
-  
-  #get_target_property(_CERES_INC ceres INTERFACE_INCLUDE_DIRECTORIES)
   
   set_property(TARGET ceres APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog")
   target_link_libraries(ceres INTERFACE Eigen3::Eigen)
