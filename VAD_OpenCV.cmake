@@ -26,9 +26,12 @@ function(vad_live)
   # example of disabling something
   #set(BUILD_opencv_flann OFF CACHE BOOL "" FORCE)
   
+  cmake_policy(VERSION 2.8)
   add_subdirectory("${VAD_EXTERNAL_ROOT}/OpenCV" "${CMAKE_BINARY_DIR}/external/OpenCV")
   
   add_library(OPENCV::OPENCV INTERFACE IMPORTED)
+  
+  message("cmake binary dir: ${CMAKE_BINARY_DIR}")
   
   file(GLOB _OPENCV_MODULES_LIST "${VAD_EXTERNAL_ROOT}/OpenCV/modules/*/")
   message("opencv modules: ")
@@ -38,6 +41,7 @@ function(vad_live)
       if(TARGET "opencv_${D_NAME}")
         list(APPEND _OPENCV_TGTS "opencv_${D_NAME}")
         list(APPEND _OPENCV_INC "${D}/include")
+        set_target_properties(opencv_${D_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${D}/include;${CMAKE_BINARY_DIR};${VAD_EXTERNAL_ROOT}/OpenCV/include")
         message("module: ${D_NAME}")
       else()
         message("skipping module ${D_NAME} (target opencv_${D_NAME} does not exist!)")
@@ -45,8 +49,8 @@ function(vad_live)
     endif()
   endforeach()
   
-  set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_LINK_LIBRARIES "${_OPENCV_TGTS}")
-  set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/OpenCV/include;${CMAKE_BINARY_DIR};${_OPENCV_INC}")
+  #set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_LINK_LIBRARIES "${_OPENCV_TGTS}")
+  #set_target_properties(OPENCV::OPENCV PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/OpenCV/include;${CMAKE_BINARY_DIR};${_OPENCV_INC}")
   
   # FIXME 
   set(OpenCV_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/OpenCV/include;${_OPENCV_INC};${CMAKE_BINARY_DIR}" CACHE STRING "" FORCE)

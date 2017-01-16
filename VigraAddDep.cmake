@@ -29,6 +29,9 @@ endif()
 include(CMakeParseArguments)
 include(VAD_target_properties)
 
+#set package name alias
+set(_VAD_Eigen_ALIAS Eigen3)
+
 if(VAD_EXTERNAL_ROOT)
   message(STATUS "The root of external dependencies has been specified by the user: ${VAD_EXTERNAL_ROOT}")
 else()
@@ -251,7 +254,7 @@ function(find_package_plus _VAD_NAME)
   # Get the list of the currently defined variables.
   get_cmake_property(_OLD_VARIABLES_${_VAD_NAME} VARIABLES)
   # Call the original find_package().
-  message("call original _find_package(${_VAD_NAME} ${ARGN})")
+  message("call original _find_package(${_VAD_NAME} ${ARGN}) (module path: ${CMAKE_MODULE_PATH})")
   _find_package(${_VAD_NAME} ${ARGN})
   message("called original _find_package(${_VAD_NAME} ${ARGN})")
   # Detect new variables defined by find_package() and make them cached.
@@ -336,6 +339,10 @@ endfunction()
 function(vigra_add_dep _VAD_NAME)
   # Reset the hooks.
   vad_reset_hooks()
+  
+  if (_VAD_${_VAD_NAME}_ALIAS)
+    set(_VAD_NAME ${_VAD_${_VAD_NAME}_ALIAS})
+  endif()
 
   # Parse the options.
   set(options SYSTEM LIVE VAD_IGNORE_DEP)

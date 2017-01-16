@@ -12,7 +12,7 @@ function(vad_system)
   vad_system_default(${ARGN})
   
   if (NOT TARGET ceres)
-    message(FATAL_ERROR "expected target \"ceres\"")
+    return()
   endif()
   
   # not working...
@@ -40,7 +40,7 @@ function(vad_system)
 endfunction()
 
 function(vad_deps)
-  vad_autodep_pkg(Eigen "Ceres")
+  vad_autodep_pkg(Eigen3 "Ceres")
 endfunction()
 
 function(vad_live)
@@ -80,11 +80,14 @@ function(vad_live)
   
   #get_target_property(_CERES_INC ceres INTERFACE_INCLUDE_DIRECTORIES)
   
-  #set_target_properties(CERES::CERES PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}")
-  #set_target_properties(CERES::CERES PROPERTIES INTERFACE_LINK_LIBRARIES ceres)
+  set_property(TARGET ceres APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog")
+  target_link_libraries(ceres INTERFACE Eigen3::Eigen)
   
   set(CERES_INCLUDE_DIRS "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}" CACHE STRING "" FORCE)
   set(CERES_LIBRARIES ceres CACHE STRING "" FORCE)
   set(CERES_FOUND TRUE CACHE BOOL "" FORCE)
 
+  #TODO fix this:
+  add_library(ceres_hack3 ALIAS ceres)
+  
 endfunction()

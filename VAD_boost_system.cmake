@@ -9,8 +9,7 @@ function(vad_live)
   
   add_library(boost_system ${_SRCS})
   target_include_directories(boost_system PUBLIC "${VAD_EXTERNAL_ROOT}/boost_system/include")
-  target_include_directories(boost_system PUBLIC ${_DEP_INC})
   target_link_libraries(boost_system PUBLIC boost_config boost_predef boost_assert boost_core)
   
-  add_library(Boost::system ALIAS boost_system GLOBAL)
+  add_library(Boost::system ALIAS boost_system)
 endfunction()
