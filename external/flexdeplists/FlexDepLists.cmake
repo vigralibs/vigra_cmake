@@ -410,7 +410,7 @@ macro(dep_lists_prepare_env)
   endif()
   
   #generate at configure time
-  file(MAKE_DIRECTORY ${directory}/${CMAKE_CURRENT_BINARY_DIR}/include/${_FDP_HEADER_PREFIX})
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/${_FDP_HEADER_PREFIX})
                  
   foreach(_H ${${_FDP_PNU}_HEADERS})
     if (IS_ABSOLUTE ${_H})

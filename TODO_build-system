@@ -24,3 +24,7 @@ CMAKE/libs:
 
 - CHECK: some find_packages (like HDF5) call themselves again (with different options!)
 - check alternatives! (e.g. Eigen or Eigen3?)
+
+
+Eigen:
+- should not add eigen path to camek package repo because a later search will find build_external_dep/eigenconfig!

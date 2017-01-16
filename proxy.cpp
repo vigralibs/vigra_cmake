@@ -1,35 +1,6 @@
 #include "proxy.hpp"
 
-#include <stdio.h>
-
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
-
-#include "ceres/ceres.h"
-#include "ceres/rotation.h"
-
-
-using ceres::AutoDiffCostFunction;
-using ceres::CostFunction;
-using ceres::Problem;
-using ceres::Solver;
-using ceres::Solve;
-
 using cv::Point2i;
-
-using namespace std;
-
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
-
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/opencv.hpp>
-
-#include <cstdarg>
 
 namespace ucalib {
   

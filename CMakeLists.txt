@@ -1,8 +1,5 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.12)
 project(ucalib)
-
-#for 
-cmake_policy(VERSION 2.8.12)
 
 
 #####################################################
@@ -61,7 +58,7 @@ dep_lists_prepare_env()
 
 
 add_library(ucalib proxy.cpp ucalib.cpp)
-vad_link(ucalib cliini ceres_hack3 metamat)
+vad_link(ucalib cliini ceres_hack3 metamat opencv_calib3d opencv_imgproc opencv_highgui opencv_shape)
 
 
 add_executable(ucalib_sample sample.cpp)
