@@ -49,8 +49,8 @@ endif()
 #dep_lists_append(mm-mesh OPTIONAL)
 
 # this only exports the headers ... remove/only for install!
-set(${_PNU}_HEADERS proxy.hpp ucalib.hpp loess.hpp)
-dep_lists_prepare_env()
+#set(${_PNU}_HEADERS )
+#dep_lists_prepare_env()
 
 #####################################################
 ## COMPILE
@@ -58,8 +58,8 @@ dep_lists_prepare_env()
 
 
 add_library(ucalib proxy.cpp ucalib.cpp)
+vad_headers(ucalib proxy.hpp ucalib.hpp loess.hpp)
 vad_link(ucalib cliini ceres_hack3 metamat opencv_calib3d opencv_imgproc opencv_highgui opencv_shape)
-
 
 add_executable(ucalib_sample sample.cpp)
 vad_link(ucalib_sample ucalib hdmarker cliini-cpp)
