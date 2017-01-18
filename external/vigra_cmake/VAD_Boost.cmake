@@ -1,7 +1,13 @@
 set(GIT_REPO "https://github.com/boostorg/boost.git")
 
 function(vad_system)
-vad_system_default(${ARGN} COMPONENTS filesystem system)
+# TODO args might change!
+if (NOT _vad_boost_searching)
+  message("rec var: ${_vad_boost_searching}")
+  set(_vad_boost_searching true)
+  vad_system_default(${ARGN} COMPONENTS filesystem system)
+  set(_vad_boost_searching)
+endif()
 endfunction()
 
 function(vad_live)

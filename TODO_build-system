@@ -28,3 +28,5 @@ CMAKE/libs:
 
 Eigen:
 - should not add eigen path to camek package repo because a later search will find build_external_dep/eigenconfig!
+
+- Boost: recursion caused by findboost.cmak -> find_package(boost ...) -> vad_system -> findboost...

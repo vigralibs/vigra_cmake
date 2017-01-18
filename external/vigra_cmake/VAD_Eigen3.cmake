@@ -4,7 +4,7 @@ set(GIT_REPO "https://github.com/RLovelett/eigen.git")
 
 function(vad_system)
   message("run VAD_SYSTEM for EIGEN")
-  vad_system_default(${ARGN} NO_CMAKE_PACKAGE_REGISTRY)
+  vad_system_default(${ARGN} NO_CMAKE_BUILDS_PATH)
   
   if (EIGEN3_FOUND)
     set(EIGEN_FOUND true PARENT_SCOPE)

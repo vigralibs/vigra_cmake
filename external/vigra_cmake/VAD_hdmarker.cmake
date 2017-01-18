@@ -1,6 +1,10 @@
 # FIXME multiple urls? authentication?
 set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:hsiedelm/hdmarker.git")
 
+function(vad_system)
+  vad_system_default(${ARGN} NO_CMAKE_BUILDS_PATH)
+endfunction()
+
 function(vad_deps)
   vad_autodep_pkg(OpenCV "hdmarker")
   vad_autodep_pkg(Ceres "hdmarker")
