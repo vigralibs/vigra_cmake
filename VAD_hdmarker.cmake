@@ -15,8 +15,8 @@ function(vad_live)
   
   vad_deps(${ARGN})
   
-  if (NOT OpenCV_FOUND AND NOT Ceres_FOUND)
-    message("hdmarker: OpenCV or Ceres missing!")
+  if (NOT OPENCV_FOUND AND NOT CERES_FOUND)
+    message(FATAL_ERROR "hdmarker: OpenCV or Ceres missing!")
     return()
   endif()
   
