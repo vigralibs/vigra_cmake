@@ -29,7 +29,7 @@ endif()
 include(CMakeParseArguments)
 include(VAD_target_properties)
 
-#set package name alias
+#hardcoded package name aliases (TODO put in extra file? (and allow user to provide extra overrides))
 set(_VAD_Eigen_ALIAS Eigen3)
 
 if(VAD_EXTERNAL_ROOT)
@@ -368,7 +368,6 @@ function(vigra_add_dep _VAD_NAME)
 
   # First thing, we try to read the dep properties from the VAD file, if provided.
   find_file(VAD_${_VAD_NAME}_FILE VAD_${_VAD_NAME}.cmake ${CMAKE_MODULE_PATH})
-  message("search file ${VAD_${_VAD_NAME}_FILE} - VAD_${_VAD_NAME}.cmake in ${CMAKE_MODULE_PATH}")
   if(VAD_${_VAD_NAME}_FILE)
     message(STATUS "VAD file 'VAD_${_VAD_NAME}.cmake' was found at '${VAD_${_VAD_NAME}_FILE}'. The VAD file will now be parsed.")
     include(${VAD_${_VAD_NAME}_FILE})
@@ -447,14 +446,11 @@ function(vigra_add_dep _VAD_NAME)
   endif()
 
   if(ARG_VAD_${_VAD_NAME}_SYSTEM)
-  
-    #vad system might call find_package again...
+    # endless recursion protection vad system might call find_package again...
     string(LENGTH "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" _vad_add_dep_prot_args_len)
     list(APPEND _vigra_add_dep_running_${_VAD_NAME}_ARGS "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP")
     vad_system(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
     string(SUBSTRING "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" 0 ${_vad_add_dep_prot_args_len} _vigra_add_dep_running_${_VAD_NAME}_ARGS)
-    #set(_vigra_add_dep_running_${_VAD_NAME}_ARGS)
-    
     
     if(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND)
       message(STATUS "Dependency ${_VAD_NAME} was not found system-wide, vigra_add_dep() will exit without marking the dependency as satisfied.")
