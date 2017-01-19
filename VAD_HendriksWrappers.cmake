@@ -17,8 +17,6 @@ function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
   else()
     # check for system dependency
     
-    message("call vigra add dep from vad_autodep_pkg: ${_VAD_NAME} ${ARGN}")
-    
     vigra_add_dep(${_PKG_NAME} SYSTEM QUIET)
     vad_dep_satisfied(${_PKG_NAME})
     
@@ -28,7 +26,6 @@ function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
       if (_IDX_PKG_NAME EQUAL -1)
         set(_VAD_AUTODEP_MISSING_PKGS "${_VAD_AUTODEP_MISSING_PKGS};${_PKG_NAME}" CACHE STRING "" FORCE)
         set(_VAD_AUTODEP_REQ_${_PKG_NAME} "${_REQ_NAME}" CACHE STRING "" FORCE)
-        message("${_PKG_NAME} requested by ${_REQ_NAME}")
       endif()
     endif()
   endif()
@@ -70,33 +67,21 @@ endfunction()
 # FIXME for testing ... only PUBLIC, no Debug/Release, etc...
 function(vad_link TARGT)
 
-  message("")
-  message("vad_link ${TARGT} ${ARGN}")
-  message("")
-
   foreach(L ${ARGN})
     if(TARGET ${L})
-      message("direct call to target_link_libraries(${TARGT} PUBLIC ${L})")
       target_link_libraries(${TARGT} PUBLIC ${L})
-      #forward_target_includes(${TARGT} ${L})
-    else()
-      message("search for target and include : ${L}")
-    
+    else()   
       list(FIND _TARGET_PACKAGE_LIST ${L} _IDX_TGT)
       if (_IDX_TGT EQUAL -1)
         message(FATAL_ERROR "target ${L} does no exist and no corresponding package was found in")
       endif()
       math(EXPR _IDX_PKG "${_IDX_TGT} + 1")
       list(GET _TARGET_PACKAGE_LIST ${_IDX_PKG} _PKG_NAME)
-      
-      message("autodep target ${L} resolved to ${_PKG_NAME}")
-      
+            
       vad_autodep_pkg(${_PKG_NAME} ${CMAKE_PROJECT_NAME})
       
       if (TARGET ${L})
-        message("link ${TARGT} PUBLIC ${L}")
         target_link_libraries(${TARGT} PUBLIC ${L})
-        #forward_target_includes(${TARGT} ${L})
       else()
         # TODO check if BUILD_FROM  GIT is true if yes abort!
         message("requirested target ${TARGT} PUBLIC ${L} not found!")
@@ -105,6 +90,8 @@ function(vad_link TARGT)
   endforeach()
 endfunction()
 
+# TODO hacky alternative to manually calling this function:
+# use variable_watch of CMAKE_BACKWARDS_COMPATIBILITY (which is called by cmake at the end of configure :-D )
 function(vad_auto_deps_show)
   list(FIND _VAD_AUTODEP_PROJECT_LIST ${CMAKE_PROJECT_NAME} IDX)
   if(IDX EQUAL -1)
@@ -115,7 +102,7 @@ function(vad_auto_deps_show)
     #recursively iterate all dependencies
     
     foreach(PKG ${_VAD_AUTODEP_MISSING_PKGS})
-      # FIXME this is a direct copy, intergrate...
+      # FIXME this is a direct copy, create a shared function/macro
       find_file(VAD_${PKG}_FILE VAD_${PKG}.cmake ${CMAKE_MODULE_PATH})
       if(VAD_${PKG}_FILE)
         message(STATUS "VAD file 'VAD_${PKG}.cmake' was found at '${VAD_${PKG}_FILE}'. The VAD file will now be parsed.")
@@ -134,12 +121,14 @@ function(vad_auto_deps_show)
       option(VAD_BUILD_${PKG}_FROM_GIT "integrate LIVE source into project" off)
     endforeach()
     if (_VAD_AUTODEP_MISSING_PKGS)
-      message("miss: ${_VAD_AUTODEP_MISSING_PKGS}")
-      
       #cleanup
       set(_VAD_AUTODEP_MISSING_PKGS "" CACHE STRING "" FORCE)
       
-      message(FATAL_ERROR "unfullfilled dependencies - either install and point cmake to the missing depdendencies or use VAD_BUILD_***_FROM_GIT to integrate the respective package into the project.")
+      # show possible live packages
+      # TODO also allow packages found in system to be built from source!
+      message("")
+      message("unfullfilled dependencies - either install and point cmake to the missing depdendencies or use VAD_BUILD_***_FROM_GIT to integrate the respective package into the project.")
+      message(FATAL_ERROR "")
     endif()
   endif()
   
