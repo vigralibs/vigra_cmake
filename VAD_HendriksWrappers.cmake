@@ -56,12 +56,14 @@ function(vad_headers _TGT)
   endforeach()
   
   #only for local source
-  include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX})
-  
   # TODO make this an option?
-  set_property(TARGET ${_TGT} APPEND PROPERTY IN ${CMAKE_CURRENT_BINARY_DIR}/include)
   
-  add_custom_target(${_TGT}-header-export ALL DEPENDS ${_HEADER_DEPLIST})
+  add_custom_target(${_TGT}-header-export ALL DEPENDS ${_HEADER_DEPLIST}) 
+  #set_target_properties(${_TGT}-header-export PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX})
+  # TODO public / private option?
+  set_property(TARGET ${_TGT} APPEND PROPERTY INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/include)
+  set_property(TARGET ${_TGT} APPEND PROPERTY INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX})
+  set_property(TARGET ${_TGT} APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/include)
   add_dependencies(${_TGT} ${_TGT}-header-export)
 endfunction()
 

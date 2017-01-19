@@ -17,7 +17,6 @@ function(vad_live)
   
   git_clone(hdmarker)
   
-  message("include hdmarker dir")
   add_subdirectory("${VAD_EXTERNAL_ROOT}/hdmarker" "${CMAKE_BINARY_DIR}/external/hdmarker")
   
   set_target_properties(hdmarker PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/hdmarker/include")

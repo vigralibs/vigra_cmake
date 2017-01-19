@@ -22,7 +22,7 @@ function(vad_live)
   
   #set include dir for variable based path handling (e.g. ceres-solver)
   # FIXME does VAD handle these vars?
-  set(EIGEN_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/Eigen" CACHE STRING "" FORCE)
+  set(EIGEN_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/Eigen3" CACHE STRING "" FORCE)
   
   set_target_properties(Eigen3::Eigen PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${EIGEN_INCLUDE_DIRS}")
   

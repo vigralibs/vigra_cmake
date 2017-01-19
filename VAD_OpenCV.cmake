@@ -26,7 +26,9 @@ function(vad_live)
   # example of disabling something
   #set(BUILD_opencv_flann OFF CACHE BOOL "" FORCE)
   
-  cmake_policy(VERSION 2.8)
+  #not workgin as intended...
+  #cmake_policy(VERSION 2.8)
+  #cmake_policy(SET CMP0022 OLD)
   add_subdirectory("${VAD_EXTERNAL_ROOT}/OpenCV" "${CMAKE_BINARY_DIR}/external/OpenCV")
   
   add_library(OPENCV::OPENCV INTERFACE IMPORTED)
