@@ -205,7 +205,7 @@ endfunction()
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
 macro(find_package_plus_no_import _VAD_NAME)
-  message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.  perl: ${PERL_EXECUTABLE}")
+  message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.")
   # As a first step we want to erase from the cache all the variables that were exported by a previous call
   # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${_VAD_NAME}, which we will
   # also remove.
