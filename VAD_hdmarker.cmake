@@ -15,6 +15,11 @@ function(vad_live)
   
   vad_deps(${ARGN})
   
+  if (NOT OpenCV_FOUND AND NOT Ceres_FOUND)
+    message("hdmarker: OpenCV or Ceres missing!")
+    return()
+  endif()
+  
   git_clone(hdmarker)
   
   add_subdirectory("${VAD_EXTERNAL_ROOT}/hdmarker" "${CMAKE_BINARY_DIR}/external/hdmarker")
