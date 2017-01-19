@@ -30,3 +30,14 @@ Eigen:
 - should not add eigen path to camek package repo because a later search will find build_external_dep/eigenconfig!
 
 - Boost: recursion caused by findboost.cmak -> find_package(boost ...) -> vad_system -> findboost...
+- same for hdf5 (relation with components?)
+- vad_live - if autodep dep is not fullfilled - skip live build (else cmake probably aborts in the added subproject!) 
+      ex. hdf5 - perl! -> but still continue rest  and abort at end (to add more rec.deps!)
+
+      
+- if find_package_plus resets all vars modified by a previous call - how can we pass such vars from user!? ex.: PERL_EXECUTABLE (delete them all on startup?) - should global vars be reset at end (and new_vars_... be deleted?!) else single error can propagate into future runs!, even if user changes a variable (and it is therefore not added by a script)
+ example: find_perl adds PERL_EXECUTABLE - user changes it - will be deleted when resetting variables!
+
+- GENERAL problem: vars that land in the cache will NEVER be overwritten! example: hdf5 -> missing perl -> perl_found = FALSE! in cache!
+  - solution? detect wether variables are in cache or regular: overwriting detection - does not work
+                      - get_property (type) - can be empty even for cache...

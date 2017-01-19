@@ -226,8 +226,21 @@ endfunction()
 # Override the builtin find_package() function to just call vigra_add_dep(). The purpose of this override is to make
 # sure that any dep added via find_package() goes through the VAD machinery.
 function(find_package _VAD_NAME)
-  message("call vigra add dep from find_package: ${_VAD_NAME} ${ARGN}")
   vigra_add_dep(${_VAD_NAME} SYSTEM ${ARGN})
+  # TODO emulate REQUIRED behavior - check wether something was found?
+#   list(FIND "${ARGN}" "REQUIRED" _req_idx)
+#   if (NOT _req_idx EQUAL -1)
+#     message(FATAL_ERROR "required package ${_VAD_NAME} not found - will exit")
+#   endif()
+endfunction()
+
+function(var_is_cached _VAR _CACHED_RESVAR)
+  get_property(_vad_cv_isdefined CACHE ${_VAR} PROPERTY TYPE)
+  if ("${_vad_cv_isdefined}" STREQUAL "")
+   set(${_CACHED_RESVAR} FALSE PARENT_SCOPE)
+  else()
+   set(${_CACHED_RESVAR} TRUE PARENT_SCOPE)
+  endif()
 endfunction()
 
 function(make_imported_targets_global)
@@ -242,7 +255,7 @@ endfunction()
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
 macro(find_package_plus_no_import _VAD_NAME)
-  message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.")
+  message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.  perl: ${PERL_EXECUTABLE}")
   # As a first step we want to erase from the cache all the variables that were exported by a previous call
   # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${_VAD_NAME}, which we will
   # also remove.
@@ -254,9 +267,7 @@ macro(find_package_plus_no_import _VAD_NAME)
   # Get the list of the currently defined variables.
   get_cmake_property(_OLD_VARIABLES_${_VAD_NAME} VARIABLES)
   # Call the original find_package().
-  message("call original _find_package(${_VAD_NAME} ${ARGN}) (module path: ${CMAKE_MODULE_PATH})")
   _find_package(${_VAD_NAME} ${ARGN})
-  message("called original _find_package(${_VAD_NAME} ${ARGN})")
   # Detect new variables defined by find_package() and make them cached.
   get_cmake_property(_NEW_VARIABLES_${_VAD_NAME} VARIABLES)
   # Remove duplicates in the new vars list.
@@ -268,9 +279,13 @@ macro(find_package_plus_no_import _VAD_NAME)
   set(_DIFFVARS)
   foreach(_NEWVAR ${_NEW_VARIABLES_${_VAD_NAME}})
       list(FIND _OLD_VARIABLES_${_VAD_NAME} "${_NEWVAR}" _NEWVARIDX)
-      if(_NEWVARIDX EQUAL -1)
+      
+      var_is_cached(${_NEWVAR} _NEWVAR_IS_CACHED)
+      
+      if(_NEWVARIDX EQUAL -1 AND NOT _NEWVAR_IS_CACHED)
           # New var was not found among the old ones. We check if it is not an internal variable,
           # in which case we will add it to the cached variables.
+          # cached variables are also skipped (should not be added to diffvars so they will not be reset!
           string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
           # We forcefully exclude variables named in a certain way:
           # - starts with underscore "_",
@@ -344,6 +359,12 @@ function(vad_dep_satisfied _VAD_NAME)
 endfunction()
 
 function(vigra_add_dep _VAD_NAME)
+  string(FIND "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP" _ved_rec_prot)
+
+  if (NOT _ved_rec_prot EQUAL -1)
+    return()
+  endif()
+
   # Reset the hooks.
   vad_reset_hooks()
   
@@ -476,7 +497,15 @@ function(vigra_add_dep _VAD_NAME)
   endif()
 
   if(ARG_VAD_${_VAD_NAME}_SYSTEM)
+  
+    #vad system might call find_package again...
+    string(LENGTH "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" _vad_add_dep_prot_args_len)
+    list(APPEND _vigra_add_dep_running_${_VAD_NAME}_ARGS "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP")
     vad_system(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
+    string(SUBSTRING "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" 0 ${_vad_add_dep_prot_args_len} _vigra_add_dep_running_${_VAD_NAME}_ARGS)
+    #set(_vigra_add_dep_running_${_VAD_NAME}_ARGS)
+    
+    
     if(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND)
       message(STATUS "Dependency ${_VAD_NAME} was not found system-wide, vigra_add_dep() will exit without marking the dependency as satisfied.")
       unset(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND CACHE)

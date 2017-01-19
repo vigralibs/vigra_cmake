@@ -9,11 +9,13 @@ function(vad_system)
   vad_autodep_pkg(Eigen3 "Ceres")
   
   # FIXME environment is not reset after this!
-  find_package_plus_no_import(${ARGN})
+  find_package_plus_no_import(${ARGN} NO_CMAKE_BUILDS_PATH)
   
   if (NOT ceres_FOUND OR NOT TARGET ceres)
-    # TODO add/use a vad_*** function
-    set(VAD_ceres_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
+    message("not found ceres!: ${ceres_FOUND}")
+    # TODO add/use a vad_*** function?
+    set(ceres_FOUND FALSE PARENT_SCOPE)
+    set(VAD_Ceres_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
     return()
   endif()
   
@@ -65,8 +67,5 @@ function(vad_live)
   set(CERES_INCLUDE_DIRS "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}" CACHE STRING "" FORCE)
   set(CERES_LIBRARIES ceres CACHE STRING "" FORCE)
   set(CERES_FOUND TRUE CACHE BOOL "" FORCE)
-
-  #TODO fix this:
-  add_library(ceres_hack3 ALIAS ceres)
   
 endfunction()

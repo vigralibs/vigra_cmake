@@ -56,10 +56,9 @@ endif()
 ## COMPILE
 #####################################################
 
-
 add_library(ucalib proxy.cpp ucalib.cpp)
 vad_headers(ucalib proxy.hpp ucalib.hpp loess.hpp)
-vad_link(ucalib cliini ceres_hack3 metamat opencv_calib3d opencv_imgproc opencv_highgui opencv_shape)
+vad_link(ucalib cliini ceres metamat opencv_calib3d opencv_imgproc opencv_highgui opencv_shape)
 
 add_executable(ucalib_sample sample.cpp)
 vad_link(ucalib_sample ucalib hdmarker cliini-cpp)
