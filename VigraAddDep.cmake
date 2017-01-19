@@ -118,8 +118,7 @@ function(vad_make_imported_target_global _VAD_NAME)
   get_target_property(IMP_PROP "${_VAD_NAME}" IMPORTED)
   if(NOT IMP_PROP)
     get_target_property(_IMP_TYPE "${_VAD_NAME}" TYPE)
-    message("type: ${_IMP_TYPE} imp: ${IMP_PROP}")
-    message(FATAL_ERROR "Target '${_VAD_NAME}' is not IMPORTED, no need to make it global.")
+    message(FATAL_ERROR "Target '${_VAD_NAME}' is not IMPORTED but of type \"${_IMP_TYPE}\", no need to make it global.")
   endif()
 
   # The strategy here is as follows:
@@ -162,7 +161,6 @@ function(vad_make_imported_target_global _VAD_NAME)
   add_library(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE)
   target_link_libraries(_VAD_${NAME_NO_COLONS}_STUB_INTERFACE INTERFACE _VAD_${_VAD_NAME}_STUB)
   add_library("${_VAD_NAME}" ALIAS _VAD_${NAME_NO_COLONS}_STUB_INTERFACE)
-  message("added global target ${_VAD_NAME} using _VAD_${NAME_NO_COLONS}_STUB_INTERFACE and _VAD_${_VAD_NAME}_STUB")
 
   # We need to remove the library dir for the original target from the global list:
   # the target is now just an alias with no TARGET_FILE_DIR property. Its actual
