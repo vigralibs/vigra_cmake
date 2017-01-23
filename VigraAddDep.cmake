@@ -275,7 +275,7 @@ endfunction()
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
 function(find_package_plus _VAD_NAME)
-  find_package_plus_no_import(${_VAD_NAME})
+  find_package_plus_no_import(${_VAD_NAME} ${ARGN})
 
   # Now take care of turning any IMPORTED non-GLOBAL target defined by a find_package() call into a GLOBAL one.
   make_imported_targets_global()
