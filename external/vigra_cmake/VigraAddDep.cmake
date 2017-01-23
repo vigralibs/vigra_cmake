@@ -263,6 +263,14 @@ macro(find_package_plus_no_import _VAD_NAME)
   set(VAD_NEW_VARS_${_VAD_NAME} ${_DIFFVARS} CACHE INTERNAL "")
 endmacro()
 
+function(vad_add_var _VARNAME _VARVAL)
+  if (NOT _VAD_NAME)
+    message(FATAL_ERROR "vad_add_var requires _VAD_NAME to be set!")
+  endif()
+  set(${_VARNAME} ${_VARVAL} CACHE INTERNAL "")
+  set(VAD_NEW_VARS_${_VAD_NAME} "${VAD_NEW_VARS_${_VAD_NAME}};${_VARNAME}" CACHE INTERNAL "")
+endfunction()
+
 # In addition to calling the builtin find_package(), this function
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
