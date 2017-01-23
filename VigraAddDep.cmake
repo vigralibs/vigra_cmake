@@ -184,7 +184,8 @@ endfunction()
 
 function(var_is_cached _VAR _CACHED_RESVAR)
   get_property(_vad_cv_isdefined CACHE ${_VAR} PROPERTY TYPE)
-  if ("${_vad_cv_isdefined}" STREQUAL "")
+  # cmake cache vars do not need a type -> UNINITIALIZED -> but then they are also NOT STORED in the cache!
+  if ("${_vad_cv_isdefined}" STREQUAL "" OR "${_vad_cv_isdefined}" STREQUAL "UNINITIALIZED")
    set(${_CACHED_RESVAR} FALSE PARENT_SCOPE)
   else()
    set(${_CACHED_RESVAR} TRUE PARENT_SCOPE)
