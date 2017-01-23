@@ -5,21 +5,27 @@ set(GIT_REPO "https://ceres-solver.googlesource.com/ceres-solver")
 function(vad_system)
   message("run VAD_SYSTEM for CERES")
   
-  
   vad_autodep_pkg(Eigen3 "Ceres")
   
   # FIXME environment is not reset after this!
   find_package_plus_no_import(${ARGN} NO_CMAKE_BUILDS_PATH)
   
-  if (NOT ceres_FOUND OR NOT TARGET ceres)
-    message("not found ceres!: ${ceres_FOUND}")
-    # TODO add/use a vad_*** function?
-    set(ceres_FOUND FALSE PARENT_SCOPE)
+  if (NOT Ceres_FOUND OR NOT TARGET ceres OR NOT GLOG_LIBRARIES)
+    message("FIXME ceres or dependency not found (ceres-found: ${Ceres_FOUND} glog libs: ${GLOG_LIBRARIES} or ceres target?)")
+    vad_add_var(Ceres_FOUND false)
     set(VAD_Ceres_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
     return()
   endif()
   
-  set_property(TARGET ceres APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen")
+  vad_add_var(CERES_INCLUDE_DIRS "${CERES_INCLUDE_DIRS};${EIGEN3_INCLUDE_DIRS}")
+  
+  # IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE is deprecated and ceres is missing Eigen dep.
+  # TODO debug / release ...
+  get_property(_linklibs TARGET ceres PROPERTY IMPORTED_LINK_INTERFACE_LIBRARIES_RELEASE)  
+  set_property(TARGET ceres APPEND PROPERTY INTERFACE_LINK_LIBRARIES "Eigen3::Eigen;${_linklibs}")
+  
+  
+  set(CERES_FOUND TRUE CACHE BOOL "" FORCE)
   
   # TODO put this into a nice interface?
   make_imported_targets_global()
