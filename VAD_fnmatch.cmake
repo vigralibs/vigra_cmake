@@ -1,5 +1,6 @@
 # FIXME multiple urls? authentication?
-set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:light-field/fnmatch.git")
+#set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:light-field/fnmatch.git")
+set(GIT_REPO "http://hci-repo.iwr.uni-heidelberg.de/light-field/fnmatch.git")
 
 function(vad_system)
   add_library(FNMATCH::FNMATCH INTERFACE IMPORTED GLOBAL)  

@@ -1,5 +1,6 @@
 # FIXME multiple urls? authentication?
-set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:light-field/cliini.git")
+#set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:light-field/cliini.git")
+set(GIT_REPO "http://hci-repo.iwr.uni-heidelberg.de/light-field/cliini.git")
 
 function(vad_system)
   vad_system_default(${ARGN})

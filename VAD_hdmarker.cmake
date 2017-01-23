@@ -1,5 +1,6 @@
 # FIXME multiple urls? authentication?
-set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:hsiedelm/hdmarker.git")
+#set(GIT_REPO "git@hci-repo.iwr.uni-heidelberg.de:hsiedelm/hdmarker.git")
+set(GIT_REPO "http://hci-repo.iwr.uni-heidelberg.de/hsiedelm/hdmarker.git")
 
 function(vad_system)
   vad_system_default(${ARGN} NO_CMAKE_BUILDS_PATH)
