@@ -64,7 +64,7 @@ int main(int argc, const char *argv[])
 {
   Marker::init();
   
-  cliargs args(argc, argv, NULL);
+  cliargs args(argc, argv, &group);
   
   std::vector<Corner> corners_rough;
   std::vector<Corner> corners;
@@ -73,21 +73,31 @@ int main(int argc, const char *argv[])
   double unit_size_res = unit_size;
   
   for(int i=0;i<args["imgs"].count();i++) {
-    Mat img = imread(args["imgs"].str(i));
+    Mat img = imread(args["imgs"].str(i), CV_LOAD_IMAGE_GRAYSCALE);
+    printf("detect img %s\n", args["imgs"].str(i).c_str());
+    corners_rough.resize(0);
     Marker::detect(img, corners_rough);
-    hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, NULL, NULL, 0);
+    Mat debug;
+    corners.resize(0);
+    hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, &debug, NULL, 0);
+    imwrite((args["imgs"].str(i)+".detect.png").c_str(), debug);
+  
+    std::vector<Point2f> ipoints_v(corners.size());
+    std::vector<Point2f> wpoints_v(corners.size());
+    
+    for(int ci=0;ci<corners.size();ci++) {
+      ipoints_v[ci] = corners[ci].p;
+      Point2f w_2d = unit_size_res*Point2f(corners[ci].id.x, corners[ci].id.y);
+      wpoints_v[ci] = Point2f(w_2d.x, w_2d.y);
+    }
+    
+    FileStorage fs(args["store"].str()+".pointcache", FileStorage::WRITE);
+
+    fs << "img_points" << ipoints_v;
+    fs << "world_points" << wpoints_v;
   }
   
-  std::vector<Point2f> ipoints_v(corners.size());
-  std::vector<Point2f> wpoints_v(corners.size());
-  
-  for(int ci=0;ci<corners.size();ci++) {
-    ipoints_v[ci] = corners[ci].p;
-    Point2f w_2d = unit_size_res*Point2f(corners[ci].id.x, corners[ci].id.y);
-    wpoints_v[ci] = Point2f(w_2d.x, w_2d.y);
-  }
-  
-  if (args["store"].valid())
+  /*if (args["store"].valid())
   {
     FileStorage fs(args["store"].str(), FileStorage::WRITE);
 
@@ -100,7 +110,7 @@ int main(int argc, const char *argv[])
     
     fs["img_points"] >> ipoints_v;
     fs["world_points"] >> wpoints_v;
-  }
+  }*/
 
   //TODO calibration...
   
