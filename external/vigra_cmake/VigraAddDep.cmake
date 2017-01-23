@@ -285,9 +285,16 @@ endfunction()
 function(vad_system_default _VAD_NAME)
   message(STATUS "Invoking the default implementation of vad_system() for dependency ${_VAD_NAME}.")
   find_package_plus(${_VAD_NAME} ${ARGN})
+endfunction()
+
+function(vad_system_call _VAD_NAME)
+  vad_system(${_VAD_NAME} ${ARGN})
   # Check the FOUND flag.
   if(NOT ${_VAD_NAME}_FOUND)
     set(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
+  else()
+    # for recursive calls the inner might fail and the outer succeed
+    set(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND FALSE CACHE INTERNAL "")
   endif()
 endfunction()
 
@@ -456,7 +463,7 @@ function(vigra_add_dep _VAD_NAME)
     # endless recursion protection vad system might call find_package again...
     string(LENGTH "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" _vad_add_dep_prot_args_len)
     list(APPEND _vigra_add_dep_running_${_VAD_NAME}_ARGS "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP")
-    vad_system(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
+    vad_system_call(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
     string(SUBSTRING "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" 0 ${_vad_add_dep_prot_args_len} _vigra_add_dep_running_${_VAD_NAME}_ARGS)
     
     if(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND)
