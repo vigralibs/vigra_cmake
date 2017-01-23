@@ -3,16 +3,20 @@
 set(GIT_REPO "https://github.com/RLovelett/eigen.git")
 
 function(vad_system)
-  message("run VAD_SYSTEM for EIGEN")
-  vad_system_default(${ARGN} NO_CMAKE_BUILDS_PATH)
+  message("run VAD_SYSTEM for EIGEN3")
+  find_package_plus_no_import(${ARGN} NO_CMAKE_BUILDS_PATH)
   
+  # TODO also handle this through some script?
+  # ceres uses it's own findEigen routine... and expexts EIGEN_... as var names...
   if (EIGEN3_FOUND)
-    set(EIGEN_FOUND true PARENT_SCOPE)
+    vad_add_var(EIGEN_FOUND TRUE)
   endif()
-  message("finshed run VAD_SYSTEM for EIGEN")
+  if (Eigen3_VERSION)
+    vad_add_var(EIGEN_VERSION ${Eigen3_VERSION})
+  endif()
+  make_imported_targets_global()
 endfunction()
 
-# FIXME this is a hack - to get EIGEN_INCLUDE_DIRS into the scope of the calling ceres CMakeLists.txt (use CACHE instead?)
 function(vad_live)
   message("run VAD_LIVE for EIGEN")
   

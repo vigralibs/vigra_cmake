@@ -41,3 +41,10 @@ Eigen:
 - GENERAL problem: vars that land in the cache will NEVER be overwritten! example: hdf5 -> missing perl -> perl_found = FALSE! in cache!
   - solution? detect wether variables are in cache or regular: overwriting detection - does not work
                       - get_property (type) - can be empty even for cache...
+
+                      
+TODO small:
+- remove not-necessary VAD_BUILD_opts (or always add all?)
+
+TIPS:
+- in vad_system (live?) never directly add vars (use vad_add_var), importing targets is okay though.
