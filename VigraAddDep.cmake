@@ -209,7 +209,7 @@ macro(find_package_plus_no_import _VAD_NAME)
   # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${_VAD_NAME}, which we will
   # also remove.
   foreach(_NEWVAR ${VAD_NEW_VARS_${_VAD_NAME}})
-    if (VAD_${_NEWVAR}_RESET_OWNER STREQUAL ${_VAD_NAME})
+    if ("${VAD_${_NEWVAR}_RESET_OWNER}" STREQUAL "${_VAD_NAME}")
       unset(${_NEWVAR} CACHE)
       unset(${_NEWVAR})
     else()
