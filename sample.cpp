@@ -4,6 +4,8 @@
 
 #include <opencv2/highgui.hpp>
 
+#include <iostream>
+
 using namespace cv;
 using namespace cliini;
 using namespace hdmarker;
@@ -64,7 +66,7 @@ int main(int argc, const char *argv[])
 {
   Marker::init();
   
-  cliargs args(argc, argv, NULL);
+  cliargs args(argc, argv, &group);
   
   std::vector<Corner> corners_rough;
   std::vector<Corner> corners;
@@ -73,34 +75,45 @@ int main(int argc, const char *argv[])
   double unit_size_res = unit_size;
   
   for(int i=0;i<args["imgs"].count();i++) {
-    Mat img = imread(args["imgs"].str(i));
-    Marker::detect(img, corners_rough);
-    hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, NULL, NULL, 0);
-  }
-  
-  std::vector<Point2f> ipoints_v(corners.size());
-  std::vector<Point2f> wpoints_v(corners.size());
-  
-  for(int ci=0;ci<corners.size();ci++) {
-    ipoints_v[ci] = corners[ci].p;
-    Point2f w_2d = unit_size_res*Point2f(corners[ci].id.x, corners[ci].id.y);
-    wpoints_v[ci] = Point2f(w_2d.x, w_2d.y);
-  }
-  
-  if (args["store"].valid())
-  {
-    FileStorage fs(args["store"].str(), FileStorage::WRITE);
-
-    fs << "img_points" << ipoints_v;
-    fs << "world_points" << wpoints_v;
-  }
-  if (args["load"].valid())
-  {
-    FileStorage fs(args["load"].str(), FileStorage::READ);
+    std::string img_f = args["imgs"].str(i);
     
-    fs["img_points"] >> ipoints_v;
-    fs["world_points"] >> wpoints_v;
+    std::vector<Point2f> ipoints_v(corners.size());
+    std::vector<Point2f> wpoints_v(corners.size());
+      
+    if (boost::filesystem::exists(img_f+".pointcache.yaml")) {
+      FileStorage fs(img_f+".pointcache.yaml", FileStorage::READ);
+      fs["img_points"] >> ipoints_v;
+      fs["world_points"] >> wpoints_v;
+      
+      printf("%d points\n", ipoints_v.size());
+    }
+    else {
+      std::cout << img_f+".pointcache.yaml" << "does not exist!\n";
+      Mat img = imread(img_f, CV_LOAD_IMAGE_GRAYSCALE);
+      printf("detect img %s\n", args["imgs"].str(i).c_str());
+      corners_rough.resize(0);
+      Marker::detect(img, corners_rough, false, 0, 100, 3);
+      Mat debug;
+      corners.resize(0);
+      hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, &debug, NULL, 0, {cv::Rect(7,20,2,2)});
+      imwrite((img_f+".detect.png").c_str(), debug);
+    
+      ipoints_v.resize(corners.size());
+      wpoints_v.resize(corners.size());
+      
+      for(int ci=0;ci<corners.size();ci++) {
+        ipoints_v[ci] = corners[ci].p;
+        Point2f w_2d = unit_size_res*Point2f(corners[ci].id.x, corners[ci].id.y);
+        wpoints_v[ci] = Point2f(w_2d.x, w_2d.y);
+      }
+    
+      std::cout << "write " << img_f+".pointcache.yaml" << "\n";
+      FileStorage fs(img_f+".pointcache.yaml", FileStorage::WRITE);
+      fs << "img_points" << ipoints_v;
+      fs << "world_points" << wpoints_v;
+    }
   }
+  
 
   //TODO calibration...
   
