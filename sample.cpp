@@ -95,7 +95,7 @@ int main(int argc, const char *argv[])
       Marker::detect(img, corners_rough, false, 0, 100, 3);
       Mat debug;
       corners.resize(0);
-      hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, &debug, NULL, 0, {cv::Rect(7,20,2,2)});
+      hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, &debug, NULL, 0);
       imwrite((img_f+".detect.png").c_str(), debug);
     
       ipoints_v.resize(corners.size());
