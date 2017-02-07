@@ -221,6 +221,10 @@ macro(dep_lists_pkg_search)
   
   if (ARGV0)
     set(_FDP_PNU ${ARGV0})
+    if (${ARGC} EQUAL 0)
+      message("WTF CMAKE ARE YOU KIDDING ME: _FDP_PNU: ARGV0 -> ${_FDP_PNU} (count ${ARGC}}")
+      string(TOUPPER ${PROJECT_NAME} _FDP_PNU)
+    endif()
   else()
     string(TOUPPER ${PROJECT_NAME} _FDP_PNU)
   endif()
@@ -289,7 +293,15 @@ endmacro(dep_lists_opt_get)
 
 macro(dep_lists_prepare_env)
   
-  string(TOUPPER ${PROJECT_NAME} _FDP_PNU)
+  if (ARGV0)
+    set(_FDP_PNU ${ARGV0})
+    if (${ARGC} EQUAL 0)
+      message("WTF CMAKE ARE YOU KIDDING ME: _FDP_PNU: ARGV0 -> ${_FDP_PNU} (count ${ARGC}}")
+      string(TOUPPER ${PROJECT_NAME} _FDP_PNU)
+    endif()
+  else()
+    string(TOUPPER ${PROJECT_NAME} _FDP_PNU)
+  endif()
 
   #####################################################
   ## SET INCLUDES, LIBS, ... (public)
