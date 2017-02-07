@@ -140,7 +140,7 @@ int main(int argc, const char *argv[])
   }
   
   
-  ucalib::calibrate_rays(proxy, ex_img.size(), MetaMat::DimSpec(-1), ucalib::LIVE);
+  ucalib::calibrate_rays(proxy, ex_img.size(), MetaMat::DimSpec(-1), ucalib::LIVE | ucalib::SHOW_TARGET);
 
   //TODO calibration...
   
