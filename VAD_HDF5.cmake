@@ -12,7 +12,7 @@ function(vad_system)
   
   if (NOT TARGET hdf5_cpp)
     add_library(hdf5_cpp INTERFACE IMPORTED)
-    set_target_properties(hdf5_cpp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_CXX_INCLUDE_DIRS}")
+    set_target_properties(hdf5_cpp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_CXX_INCLUDE_DIRS};${HDF5_CXX_INCLUDE_DIR}")
     set_target_properties(hdf5_cpp PROPERTIES INTERFACE_LINK_LIBRARIES "${HDF5_CXX_LIBRARIES}")
   endif()
 endfunction()
