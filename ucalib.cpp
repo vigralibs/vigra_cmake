@@ -1536,6 +1536,29 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
      problem.SetParameterBlockConstant(&lines({0,ray.r("x",i.cams_max)}));
      problem.SetParameterBlockConstant(&lines({2,ray.r("x",i.cams_max)}));
    }
+   
+   //ParameterBlockLocalSize: check for already set parametrization
+    if (ray["y"] == center.y && ray["x"] == center.x+1 && !reproj_error_calc_only &&
+      problem.ParameterBlockLocalSize(&lines({2,ray.r("x",i.cams_max)})) == 2) {
+     lines({0,ray.r("x",i.cams_max)}) = 0;
+     lines({1,ray.r("x",i.cams_max)}) = 0;
+     //x dir may vary
+     lines({3,ray.r("x",i.cams_max)}) = 0;
+     //origin fixed
+     problem.SetParameterBlockConstant(&lines({0,ray.r("x",i.cams_max)}));
+     problem.SetParameterization(&lines({2,ray.r("x",i.cams_max)}), new ceres::SubsetParameterization(2,{1}));
+   }
+   
+   //ParameterBlockLocalSize: check for already set parametrization
+    if (ray["y"] == center.y+1 && ray["x"] == center.x && !reproj_error_calc_only && problem.ParameterBlockLocalSize(&lines({2,ray.r("x",i.cams_max)})) == 2) {
+     lines({0,ray.r("x",i.cams_max)}) = 0;
+     lines({1,ray.r("x",i.cams_max)}) = 0;
+     lines({2,ray.r("x",i.cams_max)}) = 0;
+     //y dir may vary
+     //origin fixed
+     problem.SetParameterBlockConstant(&lines({0,ray.r("x",i.cams_max)}));
+     problem.SetParameterization(&lines({2,ray.r("x",i.cams_max)}), new ceres::SubsetParameterization(2,{0}));
+   }
         
     ray_count++;
     
