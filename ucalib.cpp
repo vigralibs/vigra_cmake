@@ -15,7 +15,7 @@
 const double proj_center_size = 0.4;
 const double extr_center_size = 0.2;
 const double non_center_rest_weigth = 1e-4;
-const double strong_proj_constr_weight = 100.0;
+const double strong_proj_constr_weight = 10.0;
 const double proj_constr_weight = 0.01;
 const double center_constr_weight = 1.0;
 const double enforce_cams_line = 10.0;
@@ -1217,7 +1217,7 @@ double calc_line_pos_weight(cv::Point2i pos, cv::Point2i proxy_size, double r, d
   
   return std::max(std::max(r-w, 0.0)*(1.0/r), min_weight);
 }
-
+/*
 static void _zline_problem_add_proj_error(ceres::Problem &problem, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &proj, double proj_constraint, double min_weight)
 {
   double two_sigma_squared = 2.0*(img_size.x*img_size.x+img_size.y*img_size.y)*proj_center_size*proj_center_size;
@@ -1238,16 +1238,16 @@ static void _zline_problem_add_proj_error(ceres::Problem &problem, Mat_<double> 
     
     if (w == 0.0)
       continue;
-    
+    */
     /*ceres::CostFunction* cost_function =
         RectProjError::Create(wp, ip, w);
         
     problem.AddResidualBlock(cost_function,
                             NULL,
                             &proj(0,pos.r("channels","cams")),
-                            &lines({2,pos.r("x","cams")}));*/
+                            &lines({2,pos.r("x","cams")}));*//*
   }
-}
+}*/
 
 static void _zline_problem_add_lin_views(ceres::Problem &problem, Mat_<double> &extrinsics_rel, double *dir)
 {      
@@ -1268,7 +1268,7 @@ static void _zline_problem_add_lin_views(ceres::Problem &problem, Mat_<double> &
 }
 
 
-
+/*
 static void _zline_problem_add_proj_error_4P(ceres::Problem &problem, Mat_<double> &lines, cv::Point2i img_size, Mat_<double> &proj, double proj_constraint)
 {
   double two_sigma_squared = 2.0*(img_size.x*img_size.x+img_size.y*img_size.y)*proj_center_size*proj_center_size;
@@ -1294,7 +1294,7 @@ static void _zline_problem_add_proj_error_4P(ceres::Problem &problem, Mat_<doubl
                             &proj(0,pos.r("channels","cams")),
                             &lines({0,pos.r("x","cams")}));
   }
-}
+}*/
 
 struct calib_infos
 {
@@ -1371,8 +1371,8 @@ static void _zline_problem_add_pinhole_lines(const calib_infos &i, ceres::Proble
         //TODO optional bounds?!
         /*problem.SetParameterLowerBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 10);
         problem.SetParameterLowerBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 10);*/
-        problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 1000000);
-        problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 1000000);
+        problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 0, 100000);
+        problem.SetParameterUpperBound(&proj(0,ray.r(i.cams_min,i.cams_max)), 1, 100000);
       }
     }
         
@@ -1458,6 +1458,8 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
     
     cv::Mat j;
     if (proxy_j.total()) {
+      abort();
+      //FIXME NAMES!
       j = cvMat(proxy_j.bindAll(-1, -1, ray["x"], ray["y"], ray["channels"], ray["cams"], ray["views"]));
       j = j.clone();
       invert(j, j);
@@ -1627,6 +1629,7 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
 
 static void _zline_problem_add_generic_lines_mesh(ceres::Problem &problem, const Mat_<float>& proxy, Mat_<double> &extrinsics, Mat_<double> &extrinsics_rel, Mat_<double> &proj, Mat_<double> &lines, cv::Point2i img_size, cv::Point2d target_size, Mat_<double> &mesh, bool reproj_error_calc_only = false, const Mat_<float> &proxy_j = Mat_<float>(), int flags = 0)
 {
+  abort();
   cv::Point2i center(proxy["x"]/2, proxy["y"]/2);
   cv::Point2i proxy_size(lines["x"], lines["y"]);
   
@@ -2212,7 +2215,7 @@ double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const
   printf("solving pinhole problem (proj w = %f...\n", proj_weight);
   ceres::Solve(options, &problem, &summary);
   printf("\npinhole rms ~%fmm\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
-
+  printf("proj0: %f x %f\n", proj(0), proj(1));
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
@@ -2861,6 +2864,8 @@ namespace ucalib {
     
     int v_start = views_dims_start.get(proxy);
     
+    //FIXME check content first?
+    proxy.names({"","x","y"});
     fit_cams_lines_multi(proxy, v_start, img_size, *c, true, j, opts);
     
 #ifdef MM_MESH_WITH_VIEWER

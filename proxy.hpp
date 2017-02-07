@@ -12,7 +12,7 @@ template<int x_degree, int y_degree> void proxy_backwards_poly_generate(Mat_<flo
 {
   int progress = 0;
   if (sigma == 0.0)
-    sigma = norm(cv::Point2f(idim.x/proxy[1],idim.y/proxy[2]))*0.5;
+    sigma = norm(cv::Point2f(idim.x/proxy[1],idim.y/proxy[2]));
 #ifndef WIN32
   #pragma omp parallel for schedule(dynamic,4) collapse(2)
 #else  
@@ -42,7 +42,7 @@ template<int x_degree, int y_degree> void proxy_backwards_pers_poly_generate(Mat
 {
   int progress = 0;
   if (sigma == 0.0)
-    sigma = norm(cv::Point2f(idim.x/proxy[1],idim.y/proxy[2]))*0.5;
+    sigma = norm(cv::Point2f(idim.x/proxy[1],idim.y/proxy[2]));
   
   float hx = idim.x / proxy[1] / 2;
   float hy = idim.y / proxy[2] / 2;
