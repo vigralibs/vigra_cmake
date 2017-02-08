@@ -1,5 +1,14 @@
 set(GIT_REPO "https://github.com/live-clones/hdf5.git")
 
+macro(h5_try_dir PATH)
+  if (NOT _FOUND_H5CPP)
+    find_path(_FOUND_H5CPP H5Cpp.h HINTS ${PATH} NO_DEFAULT_PATH NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_SYSTEM_ENVIRONMENT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    if (_FOUND_H5CPP)
+      set_target_properties(hdf5_cpp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PATH})
+    endif()
+  endif()
+endmacro()
+
 function(vad_system)
   message("run VAD_SYSTEM for HDF5")
   
@@ -12,7 +21,17 @@ function(vad_system)
   
   if (NOT TARGET hdf5_cpp)
     add_library(hdf5_cpp INTERFACE IMPORTED)
-    set_target_properties(hdf5_cpp PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${HDF5_CXX_INCLUDE_DIRS};${HDF5_CXX_INCLUDE_DIR}")
+    
+    # search cxx header and add to hdf5_cpp target (workaround for various ways that findhdf5/hdf5config are broken on different systems)
+    h5_try_dir("${HDF5_CXX_INCLUDE_DIRS}")
+    h5_try_dir("${HDF5_CXX_INCLUDE_DIR}")
+    h5_try_dir("${HDF5_C_INCLUDE_DIRS}")
+    h5_try_dir("${HDF5_C_INCLUDE_DIR}")
+    h5_try_dir("${HDF5_CXX_INCLUDE_DIRS}/cpp")
+    h5_try_dir("${HDF5_CXX_INCLUDE_DIR}/cpp")
+    h5_try_dir("${HDF5_C_INCLUDE_DIRS}/cpp")
+    h5_try_dir("${HDF5_C_INCLUDE_DIR}/cpp")
+    
     set_target_properties(hdf5_cpp PROPERTIES INTERFACE_LINK_LIBRARIES "${HDF5_CXX_LIBRARIES}")
   endif()
 endfunction()
