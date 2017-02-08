@@ -461,8 +461,8 @@ struct LineZ3GenericMeshExtraError {
     ceres::AngleAxisRotatePoint(r_neg, p_c, p_t);
     
     //TODO check p_t[2] == 0 -> no-not the case...
-    residuals[0] = (T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1]) * T(1/0.1);
-    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) * T(1/0.1);
+    residuals[0] = (T(j_(0, 0)) * p_t[0] + T(j_(0, 1)) * p_t[1]) ;//* T(1/0.1);
+    residuals[1] = (T(j_(1, 0)) * p_t[0] + T(j_(1, 1)) * p_t[1]) ;//* T(1/0.1);
     
 //     residuals[0] = p_c[0];
 //     residuals[1] = p_c[1];
@@ -551,6 +551,8 @@ struct calib_infos
   //proxy indices
   int cams_min, cams_max;
   int views_min, views_max;
+  std::function<void(double sq, const Idx &ray)> sq_callback;
+  Mat_<uint8_t> proxy_mask;
 };
 
 void _ref_cam_fix_extrinsics(const calib_infos &i, ceres::Problem &problem, const Idx &ray, Mat_<double> &extrinsics_cams)
@@ -666,6 +668,10 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
     if (std::isnan(p.x) || std::isnan(p.y))
       continue;
     
+    if (i.proxy_mask.size())
+      if (!i.proxy_mask(ray.r(1,-1)))
+        continue;
+    
         
     //TODO randomize flag?
     //lines({2,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
@@ -706,16 +712,17 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
     
     cv::Mat j;
     if (proxy_j.total()) {
-      abort();
       //FIXME NAMES!
-      j = cvMat(proxy_j.bindAll(-1, -1, ray["x"], ray["y"], ray["channels"], ray["cams"], ray["views"]));
-      j = j.clone();
+      Mat j_bind = proxy_j;
+      for(int b=ray.size()-1;b>=1;b--)
+         j_bind = j_bind.bind(b+1, ray[b]);
+      j = cvMat(j_bind).clone();
       invert(j, j);
     }
     else
       j = cv::Mat::eye(2, 2, CV_64F);
     
-    //if (!reproj_error_calc_only) {
+    /*if (!reproj_error_calc_only) {
       //push model away from pinhole!
       lines({0,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
       lines({1,ray.r("x",i.cams_max)}) += (rand() / double(RAND_MAX)-0.5)*0.1;
@@ -725,7 +732,7 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
         mesh(c,mesh_i.x, mesh_i.y+1) = (rand() / double(RAND_MAX)-0.5)*2;
         mesh(c,mesh_i.x+1, mesh_i.y+1) = (rand() / double(RAND_MAX)-0.5)*2;
       }
-    //}
+    }*/
     
     
     /*ceres::CostFunction* cost_function = 
@@ -752,6 +759,24 @@ static void _zline_problem_add_lines_gen_mesh(const calib_infos &i, ceres::Probl
                             &mesh(0,mesh_i.x, mesh_i.y+1),
                             &mesh(0,mesh_i.x+1, mesh_i.y+1)
                             );
+    
+    if (reproj_error_calc_only && i.sq_callback) {
+      double res[2];
+      
+      double *params[] = {&extrinsics_cams({0,ray.r(i.cams_min,i.cams_max)}),
+                          &extrinsics_views({0,ray.r(i.views_min,i.views_max)}),
+                          &lines({0,ray.r("x",i.cams_max)}),
+                          &lines({2,ray.r("x",i.cams_max)}),
+                          &mesh(0,mesh_i.x, mesh_i.y),
+                          &mesh(0,mesh_i.x+1, mesh_i.y),
+                          &mesh(0,mesh_i.x, mesh_i.y+1),
+                          &mesh(0,mesh_i.x+1, mesh_i.y+1)};
+      
+      cost_function->Evaluate(params, res, NULL);
+      
+      double v = res[0]*res[0] +res[1]*res[1];
+      i.sq_callback(v, ray);
+    }
     
     /////////// FIXME/HACK
 /*
@@ -1156,16 +1181,20 @@ double solve_pinhole(const calib_infos &i, ceres::Solver::Options options, const
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
-double solve_all(const calib_infos &i, ceres::Solver::Options options, const Mat_<float>& proxy, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &mesh)
+double solve_all(const calib_infos &i, ceres::Solver::Options options, const Mat_<float>& proxy, const Mat_<float> &j, Mat_<double> &lines, Mat_<double> &extrinsics_cams, Mat_<double> &extrinsics_views, Mat_<double> &proj, Mat_<double> &mesh, bool rms_only = false)
 {
   ceres::Solver::Summary summary;
   ceres::Problem problem;
   
-  options.minimizer_progress_to_stdout = true;
+  _zline_problem_add_lines_gen_mesh(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, mesh, rms_only, j);
   
-  _zline_problem_add_lines_gen_mesh(i, problem, proxy, extrinsics_cams, extrinsics_views, lines, mesh, false);
-  
-  printf("solving full problem\n");
+  if (rms_only) {
+    options.max_num_iterations = 0;
+  }
+  else {
+    options.minimizer_progress_to_stdout = true;
+    printf("solving full problem\n");
+  }
   ceres::Solve(options, &problem, &summary);
   printf("\ncalib rms ~%fpx\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
 
@@ -1201,6 +1230,29 @@ double correct_cam_center(ceres::Solver::Options options, const Mat_<float>& pro
     extrinsics({5,pos[1]}) -= offset;
   
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
+}
+
+static void echo_sq(double sq)
+{
+  printf("%f ", sq);
+}
+
+struct _filter_data_worst {
+  double worst = -1;
+  uint8_t *idx = NULL;
+  double sum;
+  int count;
+};
+
+static void sq_get_worst_entry(double sq, const Idx &ray, _filter_data_worst *data, Mat_<uint8_t> &filter)
+{
+  data->count++;
+  data->sum += sq;
+  
+  if (sq > data->worst) {
+    data->worst = sq;
+    data->idx = &filter(ray.r(1,-1));
+  }
 }
 
 namespace ucalib {
@@ -1313,7 +1365,25 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   
   //solve_pinhole(i, options, proxy, lines, c._cams, c._views, proj, 0, 0);
   
-  solve_all(i, options, proxy, c._rays, c._cams, c._views, c._proj, c._mesh);
+  solve_all(i, options, proxy, j, c._rays, c._cams, c._views, c._proj, c._mesh);
+  
+  //i.sq_callback = &echo_sq;
+  //solve_all(i, options, proxy, j, c._rays, c._cams, c._views, c._proj, c._mesh,  true);
+  
+  _filter_data_worst filter_data;
+  i.proxy_mask.create(Idx(proxy.r(1,-1)));
+  cvMat(i.proxy_mask).setTo(1);
+  i.sq_callback = std::bind(&sq_get_worst_entry, std::placeholders::_1, std::placeholders::_2, &filter_data, i.proxy_mask);
+  
+  while (1) {
+    filter_data.worst = -1;
+    filter_data.sum = 0;
+    filter_data.count = 0;
+    solve_all(i, options, proxy, j, c._rays, c._cams, c._views, c._proj, c._mesh,  true);
+    printf("del %f avg %f\n", sqrt(filter_data.worst), sqrt(filter_data.sum / filter_data.count));
+    *filter_data.idx = 0;
+    solve_all(i, options, proxy, j, c._rays, c._cams, c._views, c._proj, c._mesh, false);
+  }
   
 #ifdef MM_MESH_WITH_VIEWER
   delete mesh;
