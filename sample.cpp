@@ -77,6 +77,7 @@ int main(int argc, const char *argv[])
   double unit_size = 39.94; //marker size in mm
   
   MetaMat::Mat_<float> proxy({2, 33, 25, args["imgs"].count()});
+  MetaMat::Mat_<float> jacobian({2, 2, 33, 25, args["imgs"].count()});
   
   std::string img_f = args["imgs"].str(0);
   Mat ex_img = imread(img_f, CV_LOAD_IMAGE_GRAYSCALE);
@@ -123,24 +124,29 @@ int main(int argc, const char *argv[])
   
     if (boost::filesystem::exists(img_f+".proxycache.yaml")) {
       cv::Mat sub_proxy;
+      cv::Mat sub_j;
       
       FileStorage fs(img_f+".proxycache.yaml", FileStorage::READ);
       fs["proxy"] >> sub_proxy;
+      fs["jacobian"] >> sub_j;
       
       sub_proxy.copyTo(cvMat(proxy.bind(3, i)));
+      sub_j.copyTo(cvMat(jacobian.bind(4, i)));
     }
     else {
       MetaMat::Mat_<float> sub_proxy = proxy.bind(3, i);
-      ucalib::proxy_backwards_pers_poly_generate<0,0>(sub_proxy, ipoints_v, wpoints_v, ex_img.size());
+      MetaMat::Mat_<float> sub_j = jacobian.bind(4, i);
+      ucalib::proxy_backwards_pers_poly_generate<0,0>(sub_proxy, ipoints_v, wpoints_v, ex_img.size(), 0, 0, &sub_j);
       
       FileStorage fs(img_f+".proxycache.yaml", FileStorage::WRITE);
       fs << "proxy" << cvMat(sub_proxy);
+      fs << "jacobian" << cvMat(sub_j);
     }
   
   }
   
   
-  ucalib::calibrate_rays(proxy, ex_img.size(), MetaMat::DimSpec(-1), ucalib::LIVE | ucalib::SHOW_TARGET);
+  ucalib::calibrate_rays(proxy, jacobian, ex_img.size(), MetaMat::DimSpec(-1), ucalib::LIVE | ucalib::SHOW_TARGET);
 
   //TODO calibration...
   
