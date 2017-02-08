@@ -56,12 +56,15 @@ endif()
 ## COMPILE
 #####################################################
 
-add_definitions(-DUCALIB_WITH_MM_MESH=1)
-add_definitions(-DMM_MESH_WITH_VIEWER=1)
+if (UCALIB_WITH_MM_MESH)
+  add_definitions(-DUCALIB_WITH_MM_MESH=1)
+  add_definitions(-DMM_MESH_WITH_VIEWER=1)
+  set(MESH_LIB on)
+endif()
 
 add_library(ucalib proxy.cpp ucalib.cpp)
 vad_headers(ucalib proxy.hpp ucalib.hpp loess.hpp)
-vad_link(ucalib cliini ceres metamat mm-mesh opencv_calib3d opencv_imgproc opencv_highgui opencv_shape)
+vad_link(ucalib cliini ceres metamat opencv_calib3d opencv_imgproc opencv_highgui opencv_shape ${MESH_LIB})
 
 add_executable(ucalib_sample sample.cpp)
 vad_link(ucalib_sample ucalib hdmarker cliini-cpp)
