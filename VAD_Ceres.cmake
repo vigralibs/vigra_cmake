@@ -59,10 +59,10 @@ function(vad_live)
         "#undef ERROR\n#define MAX_LOG_LEVEL -1" FILECONTENT "${FILECONTENT}")
   file(WRITE "${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog/glog/logging.h" "${FILECONTENT}")  
   
-  set(EIGENSPARSE ON CACHE BOOL "" FORCE) #use Eigen (no additional deps required - but suitesparse should be faster!)
-  set(MINIGLOG ON CACHE BOOL "" FORCE) #use miniglog
-  set(EIGENSPARSE ON CACHE BOOL "" FORCE)
-  set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+  vad_add_var(EIGENSPARSE ON CACHE BOOL "" FORCE) #use Eigen (no additional deps required - but suitesparse should be faster!)
+  vad_add_var(MINIGLOG ON CACHE BOOL "" FORCE) #use miniglog
+  vad_add_var(EIGENSPARSE ON CACHE BOOL "" FORCE)
+  vad_add_var(BUILD_TESTING OFF CACHE BOOL "" FORCE)
   
   # TODO default seems to point to checkout out dir in source?!?
   add_subdirectory("${VAD_EXTERNAL_ROOT}/Ceres" "${CMAKE_BINARY_DIR}/external/Ceres")
@@ -70,8 +70,8 @@ function(vad_live)
   set_property(TARGET ceres APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog")
   target_link_libraries(ceres INTERFACE Eigen3::Eigen)
   
-  set(CERES_INCLUDE_DIRS "${CERES_INCLUDE_DIRS};${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}" CACHE STRING "" FORCE)
-  set(CERES_LIBRARIES ceres CACHE STRING "" FORCE)
-  set(CERES_FOUND TRUE CACHE BOOL "" FORCE)
+  vad_add_var(CERES_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}" CACHE STRING "" FORCE)
+  vad_add_var(CERES_LIBRARIES ceres CACHE STRING "" FORCE)
+  vad_add_var(CERES_FOUND TRUE CACHE BOOL "" FORCE)
   
 endfunction()
