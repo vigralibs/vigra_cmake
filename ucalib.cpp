@@ -1370,7 +1370,8 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   //i.sq_callback = &echo_sq;
   //solve_all(i, options, proxy, j, c._rays, c._cams, c._views, c._proj, c._mesh,  true);
   
-  _filter_data_worst filter_data;
+  //filter outliers
+  /*_filter_data_worst filter_data;
   i.proxy_mask.create(Idx(proxy.r(1,-1)));
   cvMat(i.proxy_mask).setTo(1);
   i.sq_callback = std::bind(&sq_get_worst_entry, std::placeholders::_1, std::placeholders::_2, &filter_data, i.proxy_mask);
@@ -1383,7 +1384,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
     printf("del %f avg %f\n", sqrt(filter_data.worst), sqrt(filter_data.sum / filter_data.count));
     *filter_data.idx = 0;
     solve_all(i, options, proxy, j, c._rays, c._cams, c._views, c._proj, c._mesh, false);
-  }
+  }*/
   
 #ifdef MM_MESH_WITH_VIEWER
   delete mesh;
