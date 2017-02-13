@@ -80,6 +80,8 @@ void get_undist_map_for_depth(Mat_<double> lines, cv::Mat &map, double z, cv::Po
   cv::Mat_<cv::Point2d> offset(fdim.y, fdim.x);
   cv::Mat_<cv::Point2d> grad(fdim.y, fdim.x);
   
+  cv::Ptr<cv::ThinPlateSplineShapeTransformer> transform;
+  
   for(int y=0;y<fdim.y;y++)
     for(int x=0;x<fdim.x;x++) {
       if (std::isnan(lines(0,x,y))) {
@@ -99,26 +101,44 @@ void get_undist_map_for_depth(Mat_<double> lines, cv::Mat &map, double z, cv::Po
       grad.at<cv::Point2d>(y,x) = cv::Point2d(lines(0,x,y)*f.x, lines(1,x,y)*f.y);
     }
     
-  std::vector<cv::Point2f> cv_wpoints, cv_ipoints;
-  std::vector<cv::DMatch> matches;
-  for(int y=0;y<fdim.y;y++)
-    for(int x=0;x<fdim.x;x++) {
-      
-      if (std::isnan(offset.at<cv::Point2d>(y,x).x))
-        continue;
-      
-      
-      double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
-      double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
-      
-      matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
-      cv_wpoints.push_back(cv::Point2f(wx, wy));
-      cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
-    }
+  bool transform_failed = true;
+  int skippoints = 0;
+  while (transform_failed) {
+    std::vector<cv::Point2f> cv_wpoints, cv_ipoints;
+    std::vector<cv::DMatch> matches;
+    for(int y=0;y<fdim.y;y++)
+      for(int x=(skippoints+1)/2;x<fdim.x-skippoints/2;x++) {
+        
+        if (std::isnan(offset.at<cv::Point2d>(y,x).x))
+          continue;
+        
+        double wx = (x+0.5)*idim.x/fdim.x + offset.at<cv::Point2d>(y,x).x + (1.0/z)*grad.at<cv::Point2d>(y,x).x;
+        double wy = (y+0.5)*idim.y/fdim.y + offset.at<cv::Point2d>(y,x).y + (1.0/z)*grad.at<cv::Point2d>(y,x).y;
+        
+
+        matches.push_back(cv::DMatch(cv_wpoints.size(),cv_wpoints.size(), 0));
+        cv_wpoints.push_back(cv::Point2f(wx, wy));
+        cv_ipoints.push_back(cv::Point2f((x+0.5)*idim.x/fdim.x, (y+0.5)*idim.y/fdim.y));
+      }
 
 
-  cv::Ptr<cv::ThinPlateSplineShapeTransformer> transform = cv::createThinPlateSplineShapeTransformer(0);
-  transform->estimateTransformation(cv_wpoints, cv_ipoints, matches);
+    transform = cv::createThinPlateSplineShapeTransformer(0);
+    transform->estimateTransformation(cv_wpoints, cv_ipoints, matches);
+    
+    //check for failure
+    std::vector<cv::Point2f> perfect_points = {{10,10}, {100,100}};
+    std::vector<cv::Point2f> ipoints(2);
+    transform->applyTransformation(perfect_points, ipoints);
+    
+    if (ipoints[0] != cv::Point2f(0,0) && ipoints[1] != cv::Point2f(0,0))
+      transform_failed = false;
+    else
+      skippoints++;
+  }
+  
+  if (skippoints) {
+    printf("WARNING: needed to skip %d rows of samples due to interpolation issues!\n", skippoints);
+  }
 
   int approx_step = 16;
   
