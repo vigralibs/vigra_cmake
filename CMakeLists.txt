@@ -59,7 +59,7 @@ endif()
 if (UCALIB_WITH_MM_MESH)
   add_definitions(-DUCALIB_WITH_MM_MESH=1)
   add_definitions(-DMM_MESH_WITH_VIEWER=1)
-  set(MESH_LIB on)
+  set(MESH_LIB mm-mesh)
 endif()
 
 add_library(ucalib proxy.cpp ucalib.cpp)
