@@ -5,6 +5,7 @@ using cv::Point2i;
 namespace ucalib {
   
 using namespace std;
+using namespace MetaMat;
 
 const static int poly_default_xd = 3, poly_default_yd = 3;
 
