@@ -51,7 +51,7 @@ double marker_size = 40; //use marker size of 40mm
 double multiplier = marker_size;
 
 //fractal refinement up to 3 layers
-hdmarker_detect_subpattern(img, corners_rough, corners, 3, &multiplier);
+refine_recursive(img, corners_rough, corners, 3, &multiplier);
 
 ipoints.resize(corners.size());
 wpoints.resize(corners.size());
@@ -69,7 +69,7 @@ Marker::detect(img, corners_rough);
 
 and then performs fractal refinement:
 ~~~~~~~~~~~~~{.cpp}
-hdmarker_detect_subpattern(img, corners_rough, corners, 3, &multiplier);
+refine_recursive(img, corners_rough, corners, 3, &multiplier);
 ~~~~~~~~~~~~~
 The refinement is performed with *up to* three recursion steps. The multiplier variable is modified accordingly, e.g. if no refinement is performed it will keep the input value, at each refinement step it is multiplied by 1/5. This means that the true target coordinate can be calculated with the multiplier if the true marker size is known:
 ~~~~~~~~~~~~~{.cpp}

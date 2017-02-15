@@ -158,11 +158,11 @@ int main(int argc, const char *argv[])
         Mat img = imread(img_f, CV_LOAD_IMAGE_GRAYSCALE);
         printf("detect img %s\n", args["imgs"].str(i).c_str());
         corners_rough.resize(0);
-        Marker::detect(img, corners_rough, false, 0, 100, 3);
+        detect(img, corners_rough, false, 0, 100, 3);
         Mat debug;
         corners.resize(0);
         double unit_size_res = unit_size;
-        hdmarker_detect_subpattern(img, corners_rough, corners, 3, &unit_size_res, &debug, NULL, 0);
+        refine_recursive(img, corners_rough, corners, 3, &unit_size_res, &debug, NULL, 0);
         imwrite((img_f+".detect.png").c_str(), debug);
       
         ipoints_v.resize(corners.size());
