@@ -7,8 +7,8 @@
   #include <mm-mesh/mesh.hpp>
 #endif
 
-cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f);
-void get_undist_map_for_depth(MetaMat::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f);
+//cv::Vec4d line_correct_proj(cv::Vec4d line, cv::Point2d f);
+//void get_undist_map_for_depth(MetaMat::Mat_<double> lines, cv::Mat &map, double z, cv::Point2i idim, cv::Point2d f);
 
 //needs!
 //proxy.names({"point","x","y","channels","cams","views"});
@@ -17,12 +17,7 @@ void get_undist_map_for_depth(MetaMat::Mat_<double> lines, cv::Mat &map, double 
 
 namespace ucalib {
   
-void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, MetaMat::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints);
-
-}
-
-
-namespace ucalib {
+  void projectPoints(const std::vector<cv::Point3f> &wpoints, const cv::Mat &rvec, const cv::Mat &tvec, const cv::Mat &cameraMatrix, MetaMat::Mat_<double> lines, double z, cv::Point2i idim, std::vector<cv::Point2f> &ipoints);
   
   using namespace MetaMat;
   
@@ -61,14 +56,15 @@ namespace ucalib {
     virtual void rectify_to_dir(cv::Vec3d dir) = 0;
   };
   
-  /** Main class for handling calibration.
+  /** Abstract base representing a single calibration problem.
   * This is a virtual base clase, to provide a common api for different calibration methods.
-  * This class stores intrinsics and extrinsic calibration for a set of cameras
-  * calibration is handled for an arbitrary number of cameras, with a static orientation relative to each other, 
-  * the relative pose of the cameras are referenced as camera extrinsics below, and are always given relative to the first camera (which has extrinsics = 0).
+  * This class stores intrinsics and extrinsic calibration for a set of cameras.
+  * Calibration is handled for an arbitrary number of cameras, with a static orientation relative to each other, 
+  * the relative pose of the cameras are referenced as camera extrinsics below, and are always given relative to the first camera (extrinsics idx = 0).
+  * 
   * In addition all cameras may be moved together, either for calibration purposes (when the target is moved) or because camera movement is required part of the respective camera setup, for example when a camera is moved on a translation stage. These movements are called view extrinsics below, and are given as absolute extrinsics for the respective views, as a transform from target to camera coordinates (of the first camera). Note that for calibration it is almost always required to have multiple views, as the target needs to be observed from several angles and distances.
-  * Both the set of cameras and the set if views are handled as n-dimensional matrices, which can be used arbitrarily as seems logical. For example for a setup where two linear camera arrays with N cameras each, it is possible to either address the cameras as a single large 1D array with size 2N or as a 2xN (or Nx2) matrix. The same is true for the calibration views.
-  * Note that most methods us
+  * Both the set of cameras and the set of views are handled as n-dimensional matrices, which can be used arbitrarily as seems logical. For example for a setup with two linear camera arrays with N cameras each, it is possible to either address the cameras as a single large 1D array with size 2N or as a 2xN (or Nx2) matrix. The same is true for the calibration views.
+  *
   * Calibrations can be created with the respective function like calibrate_rays(), or deserialized with load().
   */
   class Calib {
@@ -85,15 +81,20 @@ namespace ucalib {
     virtual const Mat_<double> &proj() = 0;
     /** get a bitflag of supported features of the calibration (e.g. rectification, mesh deformation, etc... )*/
     virtual int features() const { return 0; };
-    /** save the calibration using the supplied save_mat and save_string functions, directly usable functions are supplied in the ucalib_clif.hpp header. */
+    /** save the calibration using the supplied \a save_mat and \a save_string functions, directly usable functions are supplied in the ucalib_clif.hpp header. Else std::function objects are often conveniently constructed using std::bind to integrate additional arguments.*/
     virtual void save(std::function<void(cpath,Mat)> save_mat, std::function<void(cpath,const char *)> save_string) = 0;
 #ifdef UCALIB_WITH_MM_MESH
     /** retrieve the calibrated mesh, if supported (check features()). */
     virtual Mesh target_mesh() const = 0;
 #endif
     
-    /** rectify the given image as if it were the cam and view given by view, where \a view_idx is (cams...,views...) to a reference depth \a z. The reference camera to which rectification occours is given by ref_cam() */
-    virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const = 0;
+    /** rectify the given image as if it were the cam and view given by view, where \a view_idx is (cams...,views...) to a reference depth \a z. The reference camera to which rectification occours is given by \a set_ref_cam()/\a ref_cam()
+     * \param src the distorted source image
+     * \param dst destination where the rectified image is stored
+     * \param view_idx concatenation of the camera idx and view idx for src. The \a dst camera is set with \a set_ref_cam().  Defaults to cam & view 0
+     * \param z reference depth for rectification and for non-central camera undistortion. z = 0 (the default) is interpreted as infinity
+     */
+    virtual void rectify(const cv::Mat &src, cv::Mat &dst, const Idx &view_idx, double z) const = 0;
     
     /** set a reference camera, used for rectification. The reference cameras is normally a camera retrieved with cam(), though only the pinhole properties (projection and pose) are used for rectification (as we want to simulate a perfect camera). */
     void set_ref_cam(const Cam *cam);
@@ -102,15 +103,29 @@ namespace ucalib {
     const Cam * _ref_cam = NULL;
   };
   
-  Cam *rectified_view_cam(Calib *calib, const Idx &view);
+  //Cam *rectified_view_cam(Calib *calib, const Idx &view);
 
   /*
   * 
   calibration input: proxy with: (xy,viewpoints,channels,cams,...,views)
   */
 
-  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start = DimSpec(-1), const Options &opts = Options(0));
-  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts = Options(0));
+  /** Calculate a ray-based camera calibration from a proxy of support points 
+   * 
+   * The proxy is generated with \a proxy_pers_poly(). As the proxy can contain any number of views and cameras, see TODO, \a views_dims_start refers to the first view dimension, which is the first dimension from the proxy where the images contain only different views (e.g. extrinsics) of the different cameras specified in the lower dimensions.
+   * \param proxy the calibration proxy containing the support points, generated by \a proxy_pers_poly(). The proxy should have size (2 x width x height x ... x views), where width and height specify the number of support points (often 33x25 or 65x49 for 4:3 images)
+   * \param img_size the image size in pixels
+   * \param opts optional calibration parameters, can be directly constructed from \a Flags bitflag
+   * \param views_dims_start refers to the first view dimension, all lower dimension should refer to different cameras. Can be -1 to refer to the last dimension, -2 for the second last etc. If the \a proxy contains named dimensions, views_dims_start can be directly constructed from a string (e.g. "views").
+   */
+  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const Options &opts = Options(0), const DimSpec &views_dims_start = DimSpec(-1));
+  /** A variant of \a calibrate_rays() which uses a per support point Jacobian matrix (2x2) to calculate the residual in image coordinates. If the proxy has size (2 x W x H...) the jacobian must have size (2 x 2 x W x H ...)
+   */
+  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const Options &opts = Options(0), const DimSpec &views_dims_start =  DimSpec(-1));
+  
+  /** Deserialize a previously serialized calibration. 
+   * The parameters \a load_mat and \a load_string return a MetaMat::Mat respectively a cpath (aka boost::filesystem::path) from the supplied location. the std::function objects are often conveniently constructed using std::bind to integrate additional arguments.
+   */
   Calib* load(std::function<Mat(cpath)> load_mat, std::function<const char *(cpath)> load_string);
 
 }

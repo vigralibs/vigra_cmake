@@ -57,9 +57,9 @@ namespace ucalib {
     virtual Mesh target_mesh() const;
 #endif
     
-    virtual void rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const;
+    virtual void rectify(const cv::Mat &src, cv::Mat &dst, const Idx &view_idx, double z) const;
     
-    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts);
+    friend Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const Options &opts, const DimSpec &views_dims_start);
     friend double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i img_size, ucalib::RayCalib &c, bool vis, const Mat_<float>& j, const ucalib::Options &opts);
     friend class RayCam;
   private:
@@ -1219,6 +1219,22 @@ double solve_all(const calib_infos &i, ceres::Solver::Options options, const Mat
   printf("\ncalib rms ~%fpx\n", 2.0*sqrt(summary.final_cost/problem.NumResiduals()));
 
   
+  printf("center rays: ");
+  cout << cvMat(lines.bindAll(-1, lines[1]/2,lines[2]/2)) << "\n";
+  
+  cout << cvMat(lines.bindAll(-1, lines[1]/2+1,lines[2]/2)) << "\n";
+  cout << cvMat(lines.bindAll(-1, lines[1]/2,lines[2]/2+1)) << "\n";
+  cout << cvMat(lines.bindAll(-1, lines[1]/2+1,lines[2]/2+1)) << "\n";
+  
+  cout << cvMat(lines.bindAll(-1, lines[1]/2-1,lines[2]/2)) << "\n";
+  cout << cvMat(lines.bindAll(-1, lines[1]/2,lines[2]/2-1)) << "\n";
+  cout << cvMat(lines.bindAll(-1, lines[1]/2-1,lines[2]/2-1)) << "\n";
+  
+  
+  //cout << cvMat(lines.bind(0, 0)) << "\n";
+  
+  
+  
   return 2.0*sqrt(summary.final_cost/problem.NumResiduals());
 }
 
@@ -1368,7 +1384,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   solve_pinhole(i, options, proxy, c._rays, c._cams, c._views, c._proj, 0, 0);
   
   
-  c._mesh.create({3, 40, 40});
+  c._mesh.create({3, 20, 20});
   //FIXME automaticall calc usefule size or get from options?!
   //FIXME target dimension * marker_size!
   cv::Point2i target_size(1200,1200);
@@ -1396,7 +1412,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   cvMat(i.proxy_mask).setTo(1);
   i.sq_callback = std::bind(&sq_get_worst_entry, std::placeholders::_1, std::placeholders::_2, &filter_data, i.proxy_mask);
   
-  while (1) {
+  for (int f=0;f<100;f++) {
     filter_data.worst = -1;
     filter_data.sum = 0;
     filter_data.count = 0;
@@ -1410,7 +1426,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
   delete mesh;
 #endif
   
-  for(auto line_pos : Idx_It_Dims(c._rays, 1, -1)) {
+  /*for(auto line_pos : Idx_It_Dims(c._rays, 1, -1)) {
     if (c._rays({0, line_pos.r(1,-1)}) == 0 &&
         c._rays({1, line_pos.r(1,-1)}) == 0 &&
         //FIXME TODO detection!
@@ -1421,7 +1437,7 @@ double fit_cams_lines_multi(Mat_<float> &proxy, int first_view_dim, cv::Point2i 
           c._rays({2, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
           c._rays({3, line_pos.r(1,-1)}) = std::numeric_limits<double>::quiet_NaN();
         }
-  }
+  }*/
   
   /*for(auto line_pos : Idx_It_Dims(c._rays, 1, -1)) {
     if (c._rays({0, line_pos.r(1,-1)}) == 0 &&
@@ -1678,10 +1694,19 @@ namespace ucalib {
   
   Cam *RayCalib::cam(const Idx &cam) const
   {
-    Idx view = {cam.r(_cams.size()-1, -1)};
-    Idx cam_only = {cam.r(0, _cams.size()-2)};
+    Idx view;
+    Idx cam_only;
     
-    return RayCalib::cam(cam_only, view);
+    //FIXME use dim_view_start_idx!
+    if (cam.size() == _cams.size()) {
+      view = {cam.r(_cams.size()-1, -1)};
+      cam_only = {cam.r(0, _cams.size()-2)};
+      
+      return RayCalib::cam(cam_only, view);
+    }
+    //FIXME use dim_view_start_idx!
+    return RayCalib::cam(Idx(_cams.size()-1), Idx(1));
+    
   }
   
   Cam *RayCalib::cam(const Idx &cam, const Idx &view) const
@@ -1781,12 +1806,12 @@ namespace ucalib {
     return _t;   
   }
 
-  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts)
+  Calib* calibrate_rays(Mat_<float> &proxy, cv::Point2i img_size, const Options &opts, const DimSpec &views_dims_start)
   {
-    return calibrate_rays(proxy, Mat_<double>(), img_size, views_dims_start, opts);
+    return calibrate_rays(proxy, Mat_<double>(), img_size, opts, views_dims_start);
   }
   
-  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const DimSpec &views_dims_start, const Options &opts)
+  Calib* calibrate_rays(Mat_<float> &proxy, const Mat_<float> &j, cv::Point2i img_size, const Options &opts, const DimSpec &views_dims_start)
   {
     RayCalib *c = new RayCalib();
     
@@ -1888,10 +1913,12 @@ namespace ucalib {
   }
   
   //FIXME correctly handle view idx as position in either/or/both cams,views
-  void RayCalib::rectify(const Mat &src, Mat &&dst, const Idx &view_idx, double z) const
+  void RayCalib::rectify(const cv::Mat &src, cv::Mat &dst, const Idx &view_idx, double z) const
   {    
     printf("do rectification!"); cout << view_idx << "\n";
     //printf("ref:"); cout << ref->_cam << " x "<< ref->_view <<  "\n";
+    
+    cv::Size size = src.size();
     
     
     Mat_<double> rect_rays({4,_rays.r(1,2)});
@@ -1960,12 +1987,12 @@ namespace ucalib {
     cout << "view: "<< r << t << "\ncam:" << ref_r << ref_t << ref_r_m*r_m <<  t+ref_t << "\n";
     
     //STEP 2 calculate undist map for cam at depth
-    map.create(src[1],src[0],CV_32FC2);
+    map.create(size, CV_32FC2);
     printf("load depth %f\n", z);
-    get_undist_map_for_depth(rect_rays, map, z, cv::Point2i(src[0],src[1]), _ref_cam->f());
+    get_undist_map_for_depth(rect_rays, map, z, size, _ref_cam->f());
     
     //STEP 3 warp
-    remap(cvMat(src), cvMat(dst), map, cv::noArray(), cv::INTER_LINEAR);
+    remap(src, dst, map, cv::noArray(), cv::INTER_LINEAR);
   }
   
 #ifdef UCALIB_WITH_MM_MESH

@@ -194,7 +194,7 @@ int main(int argc, const char *argv[])
       else {
         MetaMat::Mat_<float> sub_proxy = proxy.bind(3, i);
         MetaMat::Mat_<float> sub_j = jacobian.bind(4, i);
-        ucalib::proxy_backwards_pers_poly_generate<0,0>(sub_proxy, ipoints_v, wpoints_v, ex_img.size(), 0, 0, &sub_j);
+        ucalib::proxy_pers_poly<3,3>(sub_proxy, ipoints_v, wpoints_v, ex_img.size(), 0, 0, &sub_j);
         
         FileStorage fs(img_f+".proxycache.yaml", FileStorage::WRITE);
         fs << "proxy" << cvMat(sub_proxy);
@@ -203,7 +203,7 @@ int main(int argc, const char *argv[])
     
     }
     
-    calib = ucalib::calibrate_rays(proxy, jacobian, ex_img.size(), MetaMat::DimSpec(-1), ucalib::LIVE | ucalib::SHOW_TARGET);
+    calib = ucalib::calibrate_rays(proxy, jacobian, ex_img.size(), ucalib::LIVE | ucalib::SHOW_TARGET | ucalib::PLANAR, MetaMat::DimSpec(-1));
     
 
   }
@@ -231,13 +231,13 @@ int main(int argc, const char *argv[])
     printf("z depth : %f\n", z);
     
     //FIXME should also work with empty idx!
-    calib->set_ref_cam(calib->cam({0,0}));
+    calib->set_ref_cam(calib->cam());
     
     for(int i=0;i<args["undistort"].count();i++) {
       std::string img_f = args["undistort"].str(i);
       cv::Mat img = imread(img_f, CV_LOAD_IMAGE_GRAYSCALE);
       cv::Mat undist = imread(img_f, CV_LOAD_IMAGE_GRAYSCALE);
-      calib->rectify(MetaMat::Mat(img), MetaMat::Mat(undist), {0}, z);
+      calib->rectify(img, undist, {0}, z);
       imwrite(img_f+".undist.png", undist);
     }
   }
