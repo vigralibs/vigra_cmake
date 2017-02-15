@@ -1,0 +1,10 @@
+@echo off
+
+IF "%VAD_ENVIRONMENT%"=="" (
+    echo "No VAD environment seems to be active."
+    exit /b 1
+)
+
+set VAD_ENVIRONMENT=
+set PROMPT=%VAD_OLD_PROMPT%
+set PATH=%VAD_OLD_PATH%
