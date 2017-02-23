@@ -87,7 +87,7 @@ function(vad_link TARGT)
         target_link_libraries(${TARGT} PUBLIC ${L})
       else()
         # TODO check if BUILD_FROM  GIT is true if yes abort!
-        message("requirested target ${TARGT} PUBLIC ${L} not found!")
+        message("requested target ${TARGT} PUBLIC ${L} not found!")
       endif()
     endif()
   endforeach()
