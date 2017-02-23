@@ -8,7 +8,7 @@ endif()
 set(VAD_HendriksWrappers_Included YES)
 
 # FIXME list can be ambiguous (e.g. fnmatch -> metamat!)
-set(_TARGET_PACKAGE_LIST cliini;cliini;cliini-cpp;cliini;METAMAT::METAMAT;MetaMat;ceres;Ceres;HDF5::HDF5;HDF5;hdf5_cpp;HDF5;OPENCV::OPENCV;OpenCV;boost_system;Boost;boost_filesystem;Boost;hdmarker;hdmarker;fnmatch;fnmatch;FNMATCH::FNMATCH;fnmatch;metamat;MetaMat;Boost::system;Boost;Boost::filesystem;Boost;ceres_hack;Ceres;ceres_hack3;Ceres;opencv_core;OpenCV;opencv_imgproc;OpenCV;opencv_highgui;OpenCV;opencv_shape;OpenCV;opencv_objdetect;OpenCV;opencv_calib3d;OpenCV;mm-mesh;mm-mesh;ucalib;ucalib)
+set(_TARGET_PACKAGE_LIST cliini;cliini;cliini-cpp;cliini;METAMAT::METAMAT;MetaMat;ceres;Ceres;HDF5::HDF5;HDF5;hdf5_cpp;HDF5;OPENCV::OPENCV;OpenCV;boost_system;Boost;boost_filesystem;Boost;hdmarker;hdmarker;fnmatch;fnmatch;FNMATCH::FNMATCH;fnmatch;metamat;MetaMat;Boost::system;Boost;Boost::filesystem;Boost;ceres_hack;Ceres;ceres_hack3;Ceres;opencv_core;OpenCV;opencv_imgproc;OpenCV;opencv_highgui;OpenCV;opencv_shape;OpenCV;opencv_objdetect;OpenCV;opencv_calib3d;OpenCV;mm-mesh;mm-mesh;ucalib;ucalib;Qt5::Widgets;Qt5Widgets;Qt5::Core;Qt5Core;Qt5::Network;Qt5Network;Qt5::Gui;Qt5Gui)
 
 # TODO check system dependency!
 function(vad_autodep_pkg _PKG_NAME _REQ_NAME)
