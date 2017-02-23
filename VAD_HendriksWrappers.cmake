@@ -46,10 +46,13 @@ function(vad_headers _TGT)
                  
   set(_HEADER_DEPLIST)
   foreach(_H ${_vad_headers_UNPARSED_ARGUMENTS})
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H}
-                       COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${_H} ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H}
-                       DEPENDS ${_H})
-    list(APPEND _HEADER_DEPLIST ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H})
+    get_filename_component(_H_ABS ${_H} ABSOLUTE)
+    get_filename_component(_H_NAME ${_H} NAME)
+  
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H_NAME}
+                       COMMAND ${CMAKE_COMMAND} -E copy ${_H_ABS} ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H_NAME}
+                       DEPENDS ${_H_ABS})
+    list(APPEND _HEADER_DEPLIST ${CMAKE_CURRENT_BINARY_DIR}/include/${_HEADER_PREFIX}/${_H_NAME})
   endforeach()
   
   #only for local source
