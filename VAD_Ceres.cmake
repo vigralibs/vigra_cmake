@@ -7,6 +7,10 @@ function(vad_system)
   
   vad_autodep_pkg(Eigen3 "Ceres")
   
+  #seems to linger after a regular compile / which will for some reason make CeresConfig.cmake not import the ceres target of a system dep...
+  unset(Ceres_BINARY_DIR)
+  unset(Ceres_BINARY_DIR CACHE)
+  
   # FIXME environment is not reset after this!
   find_package_plus_no_import(${ARGN} NO_CMAKE_BUILDS_PATH)
   
