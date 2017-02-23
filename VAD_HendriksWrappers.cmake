@@ -118,12 +118,13 @@ function(vad_auto_deps_show)
       endif()
     endforeach()
   
-    message("missings PKGs: ")
-    foreach(PKG ${_VAD_AUTODEP_MISSING_PKGS})
-      message("  - ${PKG} (required by ${_VAD_AUTODEP_REQ_${PKG}})")
-      option(VAD_BUILD_${PKG}_FROM_GIT "integrate LIVE source into project" off)
-    endforeach()
     if (_VAD_AUTODEP_MISSING_PKGS)
+      message("missings PKGs: ")
+      foreach(PKG ${_VAD_AUTODEP_MISSING_PKGS})
+        message("  - ${PKG} (required by ${_VAD_AUTODEP_REQ_${PKG}})")
+        option(VAD_BUILD_${PKG}_FROM_GIT "integrate LIVE source into project" off)
+      endforeach()
+    
       #cleanup
       set(_VAD_AUTODEP_MISSING_PKGS "" CACHE STRING "" FORCE)
       
