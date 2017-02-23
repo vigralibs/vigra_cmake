@@ -3,7 +3,7 @@
 set(GIT_REPO "http://hci-repo.iwr.uni-heidelberg.de/hsiedelm/hdmarker.git")
 
 function(vad_system)
-  vad_system_default(${ARGN} NO_CMAKE_BUILDS_PATH)
+  vad_add_var(hdmarker_FOUND false)
 endfunction()
 
 function(vad_deps)
@@ -12,7 +12,7 @@ function(vad_deps)
 endfunction()
 
 function(vad_live)
-  message("run VAD_LIVE for hdmarker")
+  message("run VAD_LIVE for hdmarker (${ARGN})")
   
   vad_deps(${ARGN})
   
@@ -27,4 +27,5 @@ function(vad_live)
   
   set_target_properties(hdmarker PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/external/hdmarker/include")
   
+  set(hdmarker_FOUND true CACHE BOOL "" FORCE)
 endfunction()
