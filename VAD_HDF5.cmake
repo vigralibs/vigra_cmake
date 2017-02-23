@@ -13,7 +13,7 @@ function(vad_system)
   message("run VAD_SYSTEM for HDF5")
   
   # FIXME correct COMPONENTS handling...
-  vad_system_default(${ARGN} COMPONENTS C CXX)
+  find_package_plus_no_import(${ARGN} COMPONENTS C CXX)
   
   if (NOT HDF5_FOUND)
     return()
@@ -34,6 +34,7 @@ function(vad_system)
     
     set_target_properties(hdf5_cpp PROPERTIES INTERFACE_LINK_LIBRARIES "${HDF5_CXX_LIBRARIES}")
   endif()
+  make_imported_targets_global()
 endfunction()
 
 function(vad_live)
