@@ -11,6 +11,7 @@ function(vad_deps)
   vad_autodep_pkg(hdmarker "ucalib")
   vad_autodep_pkg(Ceres "ucalib")
   vad_autodep_pkg(MetaMat "ucalib")
+  vad_autodep_pkg(cliini "ucalib")
 endfunction()
 
 function(vad_live)

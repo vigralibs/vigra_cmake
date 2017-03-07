@@ -12,7 +12,8 @@ function(vad_system)
   unset(Ceres_BINARY_DIR CACHE)
   
   # FIXME environment is not reset after this!
-  find_package_plus_no_import(${ARGN} NO_CMAKE_BUILDS_PATH)
+  #find_package_plus_no_import(${ARGN} NO_CMAKE_BUILDS_PATH)
+  find_package_plus_no_import(Ceres)
   
   if (NOT Ceres_FOUND OR NOT TARGET ceres OR NOT GLOG_LIBRARIES)
     message("FIXME ceres or dependency not found (ceres-found: ${Ceres_FOUND} glog libs: ${GLOG_LIBRARIES} or ceres target?)")
@@ -72,10 +73,15 @@ function(vad_live)
   add_subdirectory("${VAD_EXTERNAL_ROOT}/Ceres" "${CMAKE_BINARY_DIR}/external/Ceres")
   
   set_property(TARGET ceres APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog")
+  # message is this workgin?
+  if (NOT TARGET Eigen3::Eigen)
+    message(FATAL_ERROR "eigen3 problem...")
+  endif()
   target_link_libraries(ceres INTERFACE Eigen3::Eigen)
   
-  vad_add_var(CERES_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}" CACHE STRING "" FORCE)
-  vad_add_var(CERES_LIBRARIES ceres CACHE STRING "" FORCE)
-  vad_add_var(CERES_FOUND TRUE CACHE BOOL "" FORCE)
+  vad_add_var(CERES_INCLUDE_DIRS "${VAD_EXTERNAL_ROOT}/Ceres/include;${VAD_EXTERNAL_ROOT}/Ceres/config;${VAD_EXTERNAL_ROOT}/Ceres/internal/ceres/miniglog;${EIGEN_INCLUDE_DIRS}")
+  vad_add_var(CERES_LIBRARIES ceres)
+  vad_add_var(CERES_FOUND TRUE)
+  vad_add_var(Ceres_FOUND TRUE)
   
 endfunction()
