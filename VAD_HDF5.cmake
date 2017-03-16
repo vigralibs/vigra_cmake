@@ -22,6 +22,8 @@ function(vad_system)
   if (NOT TARGET hdf5_cpp)
     add_library(hdf5_cpp INTERFACE IMPORTED)
     
+    unset(_FOUND_H5CPP)
+    unset(_FOUND_H5CPP CACHE)
     # search cxx header and add to hdf5_cpp target (workaround for various ways that findhdf5/hdf5config are broken on different systems)
     h5_try_dir("${HDF5_CXX_INCLUDE_DIRS}")
     h5_try_dir("${HDF5_CXX_INCLUDE_DIR}")
