@@ -29,6 +29,9 @@ endif()
 include(CMakeParseArguments)
 include(VAD_target_properties)
 
+#hardcoded package name aliases (TODO put in extra file? (and allow user to provide extra overrides))
+set(_VAD_Eigen_ALIAS Eigen3)
+
 if(VAD_EXTERNAL_ROOT)
   message(STATUS "The root of external dependencies has been specified by the user: ${VAD_EXTERNAL_ROOT}")
 else()
@@ -52,6 +55,8 @@ function(git_clone _VAD_NAME)
 
   message(STATUS "Git cloning repo '${VAD_${_VAD_NAME}_GIT_REPO}' into '${VAD_EXTERNAL_ROOT}/${_VAD_NAME}'.")
 
+  unset(GIT_COMMAND_ARGS)
+  message(VAD_${_VAD_NAME}_GIT_CLONE_OPTS: ${VAD_${_VAD_NAME}_GIT_CLONE_OPTS})
   # Build the command line options for the clone command.
   list(APPEND GIT_COMMAND_ARGS "clone" "${VAD_${_VAD_NAME}_GIT_REPO}" "${_VAD_NAME}")
   if(VAD_${_VAD_NAME}_GIT_CLONE_OPTS)
@@ -114,7 +119,8 @@ function(vad_make_imported_target_global _VAD_NAME)
   # Check if the target is imported. If it not, we just exit.
   get_target_property(IMP_PROP "${_VAD_NAME}" IMPORTED)
   if(NOT IMP_PROP)
-    message(FATAL_ERROR "Target '${_VAD_NAME}' is not IMPORTED, no need to make it global.")
+    get_target_property(_IMP_TYPE "${_VAD_NAME}" TYPE)
+    message(FATAL_ERROR "Target '${_VAD_NAME}' is not IMPORTED but of type \"${_IMP_TYPE}\", no need to make it global.")
   endif()
 
   # The strategy here is as follows:
@@ -171,6 +177,21 @@ endfunction()
 # sure that any dep added via find_package() goes through the VAD machinery.
 function(find_package _VAD_NAME)
   vigra_add_dep(${_VAD_NAME} SYSTEM ${ARGN})
+  # TODO emulate REQUIRED behavior - check wether something was found?
+#   list(FIND "${ARGN}" "REQUIRED" _req_idx)
+#   if (NOT _req_idx EQUAL -1)
+#     message(FATAL_ERROR "required package ${_VAD_NAME} not found - will exit")
+#   endif()
+endfunction()
+
+function(var_is_cached _VAR _CACHED_RESVAR)
+  get_property(_vad_cv_isdefined CACHE ${_VAR} PROPERTY TYPE)
+  # cmake cache vars do not need a type -> UNINITIALIZED -> but then they are also NOT STORED in the cache!
+  if ("${_vad_cv_isdefined}" STREQUAL "" OR "${_vad_cv_isdefined}" STREQUAL "UNINITIALIZED")
+   set(${_CACHED_RESVAR} FALSE PARENT_SCOPE)
+  else()
+   set(${_CACHED_RESVAR} TRUE PARENT_SCOPE)
+  endif()
 endfunction()
 
 function(make_imported_targets_global)
@@ -184,15 +205,19 @@ endfunction()
 # In addition to calling the builtin find_package(), this function
 # will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
 # the imported targets defined by the builtin find_package() global.
-function(find_package_plus _VAD_NAME)
+macro(find_package_plus_no_import _VAD_NAME)
   message(STATUS "Invoking the patched 'find_package()' function for dependency ${_VAD_NAME}.")
   # As a first step we want to erase from the cache all the variables that were exported by a previous call
   # to find_package_plus(). These variables are stored in a variable called VAD_NEW_VARS_${_VAD_NAME}, which we will
   # also remove.
   foreach(_NEWVAR ${VAD_NEW_VARS_${_VAD_NAME}})
-    unset(${_NEWVAR} CACHE)
+    if ("${VAD_${_NEWVAR}_RESET_OWNER}" STREQUAL "${_VAD_NAME}")
+      unset(${_NEWVAR} CACHE)
+      unset(${_NEWVAR})
+    else()
+      message(WARNING "inconsistent variable ownership (${_VAD_NAME} tried to unset ${_NEWVAR} which was detected as set by ${VAD_${_NEWVAR}_RESET_OWNER})")
+    endif()
   endforeach()
-  unset(VAD_NEW_VARS_${_VAD_NAME} CACHE)
 
   # Get the list of the currently defined variables.
   get_cmake_property(_OLD_VARIABLES_${_VAD_NAME} VARIABLES)
@@ -208,36 +233,79 @@ function(find_package_plus _VAD_NAME)
   # We will append the detected variables to the _DIFFVARS list.
   set(_DIFFVARS)
   foreach(_NEWVAR ${_NEW_VARIABLES_${_VAD_NAME}})
-      list(FIND _OLD_VARIABLES_${_VAD_NAME} "${_NEWVAR}" _NEWVARIDX)
-      if(_NEWVARIDX EQUAL -1)
-          # New var was not found among the old ones. We check if it is not an internal variable,
-          # in which case we will add it to the cached variables.
-          string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
-          # We forcefully exclude variables named in a certain way:
-          # - starts with underscore "_",
-          # - vad-related variables,
-          # - variables set by CMake's builtin find_package,
-          # - args* (these are arguments to macros/functions).
-          if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package" AND NOT _NEWVAR_LOW MATCHES "^argv[0-9]*" AND NOT _NEWVAR_LOW MATCHES "^argc" AND NOT _NEWVAR_LOW MATCHES "^argn")
-            # Make sure we don't store multiline strings in the cache, as that is not supported.
-            string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
-            if(VAD_VERBOSE)
-              message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
-            endif()
-            if(_NEWVAR_LOW MATCHES "librar" OR _NEWVAR_LOW MATCHES "include")
-              # Variables which are likely to represent lib paths or include dirs are set as string variables,
-              # so that they are visible from the GUI.
-              set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
+      string(TOLOWER "${_NEWVAR}" _NEWVAR_LOW)
+      # We forcefully exclude variables named in a certain way:
+      # - starts with underscore "_",
+      # - vad-related variables,
+      # - variables set by CMake's builtin find_package,
+      # - args* (these are arguments to macros/functions).
+      if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package" AND NOT _NEWVAR_LOW MATCHES "^argv[0-9]*" AND NOT _NEWVAR_LOW MATCHES "^argc" AND NOT _NEWVAR_LOW MATCHES "^argn")
+        
+        list(FIND _OLD_VARIABLES_${_VAD_NAME} "${_NEWVAR}" _NEWVARIDX)
+        
+        var_is_cached(${_NEWVAR} _NEWVAR_IS_CACHED)
+        
+        # variables might first be added to the cache by a package and then overwritten by the user
+        # these should stay in cache and stay in new_vars list
+        if (_NEWVAR_IS_CACHED)
+          #message("newvar ${_NEWVAR} is cached")
+          if (VAD_${_NEWVAR}_RESET_OWNER STREQUAL ${_VAD_NAME})
+            # force overwrite if it was cached by us (else ignore it), and leave/readd to diffvars
+            string(FIND "${VAD_NEW_VARS_${_VAD_NAME}}" ${_NEWVAR} _IS_NEWVAR_IDX)
+            if (NOT _IS_NEWVAR_IDX EQUAL -1)
+              get_property(_NEWVAR_CACHETYPE CACHE ${_NEWVAR} PROPERTY TYPE)
+              # FIXME get INTERNAL + ADVANCED flag? why do we rewrite this exaclty?
+              set(${_NEWVAR} ${${_NEWVAR}} CACHE ${_NEWVAR_CACHETYPE} "" FORCE)
+              list(APPEND _DIFFVARS ${_NEWVAR})
+              set(VAD_${_NEWVAR}_RESET_OWNER ${_VAD_NAME} CACHE INTERNAL "")
             else()
-              # Otherwise, mark them as internal vars.
-              set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
+              #message("skipping variable ${_NEWVAR} is ours but not known ${VAD_${_NEWVAR}_RESET_OWNER}")
             endif()
-            list(APPEND _DIFFVARS ${_NEWVAR})
+          else()
+            #message("skipping variable ${_NEWVAR} is cached by \"${VAD_${_NEWVAR}_RESET_OWNER}\" (I'm ${_VAD_NAME})")
           endif()
-      endif()
+        elseif(_NEWVARIDX EQUAL -1)
+            # New var was not found among the old ones. We check if it is not an internal variable,
+            # in which case we will add it to the cached variables.
+            # cached variables are also skipped (should not be added to diffvars so they will not be reset!
+              # Make sure we don't store multiline strings in the cache, as that is not supported.
+              string(REPLACE "\n" ";" _NEWVAR_NO_NEWLINES "${${_NEWVAR}}")
+              if(VAD_VERBOSE)
+                message(STATUS "Storing new variable in cache: '${_NEWVAR}:${_NEWVAR_NO_NEWLINES}'")
+              endif()
+              if(_NEWVAR_LOW MATCHES "librar" OR _NEWVAR_LOW MATCHES "include")
+                # Variables which are likely to represent lib paths or include dirs are set as string variables,
+                # so that they are visible from the GUI.
+                set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE STRING "")
+              else()
+                # Otherwise, mark them as internal vars.
+                set(${_NEWVAR} ${_NEWVAR_NO_NEWLINES} CACHE INTERNAL "")
+              endif()
+              list(APPEND _DIFFVARS ${_NEWVAR})
+              set(VAD_${_NEWVAR}_RESET_OWNER ${_VAD_NAME} CACHE INTERNAL "")
+        else()
+          #message("skipping known variable ${_VAD_NAME}")
+        endif() #new var
+      endif() #exclude match
   endforeach()
   # Store a list of the variables that were exported as cache variables.
   set(VAD_NEW_VARS_${_VAD_NAME} ${_DIFFVARS} CACHE INTERNAL "")
+endmacro()
+
+function(vad_add_var _VARNAME _VARVAL)
+  if (NOT _VAD_NAME)
+    message(FATAL_ERROR "vad_add_var requires _VAD_NAME to be set!")
+  endif()
+  set(${_VARNAME} ${_VARVAL} CACHE INTERNAL "")
+  set(VAD_NEW_VARS_${_VAD_NAME} "${VAD_NEW_VARS_${_VAD_NAME}};${_VARNAME}" CACHE INTERNAL "")
+  set(VAD_${_VARNAME}_RESET_OWNER ${_VAD_NAME} CACHE INTERNAL "")
+endfunction()
+
+# In addition to calling the builtin find_package(), this function
+# will take care of exporting as global variables the variables defined by the builtin find_package(), and to make
+# the imported targets defined by the builtin find_package() global.
+function(find_package_plus _VAD_NAME)
+  find_package_plus_no_import(${_VAD_NAME} ${ARGN})
 
   # Now take care of turning any IMPORTED non-GLOBAL target defined by a find_package() call into a GLOBAL one.
   make_imported_targets_global()
@@ -247,9 +315,17 @@ endfunction()
 function(vad_system_default _VAD_NAME)
   message(STATUS "Invoking the default implementation of vad_system() for dependency ${_VAD_NAME}.")
   find_package_plus(${_VAD_NAME} ${ARGN})
+endfunction()
+
+function(vad_system_call _VAD_NAME)
+  message("call vad_system: ${_VAD_NAME} ${ARGN}")
+  vad_system(${_VAD_NAME} ${ARGN})
   # Check the FOUND flag.
   if(NOT ${_VAD_NAME}_FOUND)
     set(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND TRUE CACHE INTERNAL "")
+  else()
+    # for recursive calls the inner might fail and the outer succeed
+    set(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND FALSE CACHE INTERNAL "")
   endif()
 endfunction()
 
@@ -257,6 +333,7 @@ endfunction()
 # will reset the hooks to their default implementations.
 function(vad_reset_hooks)
   function(vad_system)
+    message("call vad_system_default: [${_VAD_NAME}] ${ARGN} - ${ARGC}")
     vad_system_default(${ARGN})
   endfunction()
   function(vad_live _VAD_NAME)
@@ -264,6 +341,10 @@ function(vad_reset_hooks)
     git_clone(${_VAD_NAME})
     add_subdirectory("${VAD_EXTERNAL_ROOT}/${_VAD_NAME}" "${VAD_EXTERNAL_ROOT}/${_VAD_NAME}/build_external_dep")
   endfunction()
+  function(vad_deps _VAD_NAME)
+  endfunction()
+  unset(GIT_REPO PARENT_SCOPE)
+  unset(GIT_CLONE_OPTS PARENT_SCOPE)
 endfunction()
 
 function(vad_dep_satisfied _VAD_NAME)
@@ -276,8 +357,18 @@ function(vad_dep_satisfied _VAD_NAME)
 endfunction()
 
 function(vigra_add_dep _VAD_NAME)
+  string(FIND "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP" _ved_rec_prot)
+
+  if (NOT _ved_rec_prot EQUAL -1)
+    return()
+  endif()
+
   # Reset the hooks.
   vad_reset_hooks()
+  
+  if (_VAD_${_VAD_NAME}_ALIAS)
+    set(_VAD_NAME ${_VAD_${_VAD_NAME}_ALIAS})
+  endif()
 
   # Parse the options.
   set(options SYSTEM LIVE VAD_IGNORE_DEP)
@@ -341,6 +432,9 @@ function(vigra_add_dep _VAD_NAME)
       endif()
       set(VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE ${GIT_CLONE_OPTS})
       unset(GIT_CLONE_OPTS)
+    else()
+      message("${GIT_CLONE_OPTS}")
+      message("still have opts: VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE ${VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE}")
     endif()
     # TODO: branch/commit.
     if(GIT_BRANCH)
@@ -403,7 +497,13 @@ function(vigra_add_dep _VAD_NAME)
   endif()
 
   if(ARG_VAD_${_VAD_NAME}_SYSTEM)
-    vad_system(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
+    # endless recursion protection vad system might call find_package again...
+    string(LENGTH "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" _vad_add_dep_prot_args_len)
+    list(APPEND _vigra_add_dep_running_${_VAD_NAME}_ARGS "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP")
+    message("call sys call: ${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS}")
+    vad_system_call(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
+    string(SUBSTRING "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" 0 ${_vad_add_dep_prot_args_len} _vigra_add_dep_running_${_VAD_NAME}_ARGS)
+    
     if(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND)
       message(STATUS "Dependency ${_VAD_NAME} was not found system-wide, vigra_add_dep() will exit without marking the dependency as satisfied.")
       unset(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND CACHE)
