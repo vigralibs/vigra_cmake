@@ -240,11 +240,11 @@ macro(find_package_plus_no_import _VAD_NAME)
       # - variables set by CMake's builtin find_package,
       # - args* (these are arguments to macros/functions).
       if(NOT _NEWVAR_LOW MATCHES "^_" AND NOT _NEWVAR_LOW MATCHES "^vad" AND NOT _NEWVAR_LOW MATCHES "^find_package" AND NOT _NEWVAR_LOW MATCHES "^argv[0-9]*" AND NOT _NEWVAR_LOW MATCHES "^argc" AND NOT _NEWVAR_LOW MATCHES "^argn")
-        
+
         list(FIND _OLD_VARIABLES_${_VAD_NAME} "${_NEWVAR}" _NEWVARIDX)
-        
+
         var_is_cached(${_NEWVAR} _NEWVAR_IS_CACHED)
-        
+
         # variables might first be added to the cache by a package and then overwritten by the user
         # these should stay in cache and stay in new_vars list
         if (_NEWVAR_IS_CACHED)
@@ -318,7 +318,7 @@ function(vad_system_default _VAD_NAME)
 endfunction()
 
 function(vad_system_call _VAD_NAME)
-  message("call vad_system: ${_VAD_NAME} ${ARGN}")
+  #message("call vad_system: ${_VAD_NAME} ${ARGN}")
   vad_system(${_VAD_NAME} ${ARGN})
   # Check the FOUND flag.
   if(NOT ${_VAD_NAME}_FOUND)
@@ -333,7 +333,7 @@ endfunction()
 # will reset the hooks to their default implementations.
 function(vad_reset_hooks)
   function(vad_system)
-    message("call vad_system_default: [${_VAD_NAME}] ${ARGN} - ${ARGC}")
+    #message("call vad_system_default: [${_VAD_NAME}] ${ARGN} - ${ARGC}")
     vad_system_default(${ARGN})
   endfunction()
   function(vad_live _VAD_NAME)
@@ -365,7 +365,7 @@ function(vigra_add_dep _VAD_NAME)
 
   # Reset the hooks.
   vad_reset_hooks()
-  
+
   if (_VAD_${_VAD_NAME}_ALIAS)
     set(_VAD_NAME ${_VAD_${_VAD_NAME}_ALIAS})
   endif()
@@ -434,7 +434,7 @@ function(vigra_add_dep _VAD_NAME)
       unset(GIT_CLONE_OPTS)
     else()
       message("${GIT_CLONE_OPTS}")
-      message("still have opts: VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE ${VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE}")
+      #message("still have opts: VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE ${VAD_${_VAD_NAME}_GIT_CLONE_OPTS_FILE}")
     endif()
     # TODO: branch/commit.
     if(GIT_BRANCH)
@@ -500,10 +500,10 @@ function(vigra_add_dep _VAD_NAME)
     # endless recursion protection vad system might call find_package again...
     string(LENGTH "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" _vad_add_dep_prot_args_len)
     list(APPEND _vigra_add_dep_running_${_VAD_NAME}_ARGS "VAD_PROT_REC_START${ARGN}VAD_PROT_REC_STOP")
-    message("call sys call: ${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS}")
+    #message("call sys call: ${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS}")
     vad_system_call(${_VAD_NAME} ${ARG_VAD_${_VAD_NAME}_UNPARSED_ARGUMENTS})
     string(SUBSTRING "${_vigra_add_dep_running_${_VAD_NAME}_ARGS}" 0 ${_vad_add_dep_prot_args_len} _vigra_add_dep_running_${_VAD_NAME}_ARGS)
-    
+
     if(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND)
       message(STATUS "Dependency ${_VAD_NAME} was not found system-wide, vigra_add_dep() will exit without marking the dependency as satisfied.")
       unset(VAD_${_VAD_NAME}_SYSTEM_NOT_FOUND CACHE)
